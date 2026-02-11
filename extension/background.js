@@ -935,8 +935,14 @@ function formatSkillResultsForClaude(results) {
       if (r.data) {
         for (var s = 0; s < Math.min(r.data.length, 10); s++) {
           var item = r.data[s];
-          srLines.push('- ' + (item.name || 'Unknown') + (item.number ? ' #' + item.number : '') + ' [' + (item.status || '?') + ']' + (item.subtitle ? ' — ' + item.subtitle : ''));
+          srLines.push('- ' + (item.name || 'Unknown') + (item.number ? ' #' + item.number : '') + ' (ID: ' + item.id + ') [' + (item.status || '?') + ']' + (item.subtitle ? ' — ' + item.subtitle : ''));
         }
+      }
+      if (r.entityType === 'project' && r.data && r.data.length > 0) {
+        srLines.push('\nTo analyze a specific project, use [SKILL:ANALYZE_PROJECT:id] with the ID above.');
+      }
+      if (r.entityType === 'contact' && r.data && r.data.length > 0) {
+        srLines.push('\nTo see client history, use [SKILL:CLIENT_HISTORY:id] with the ID above.');
       }
       parts.push(srLines.join('\n'));
     }
@@ -980,78 +986,84 @@ async function handleChat(text) {
 
     console.log('[BetterBoss ' + BG_VERSION + '] Calling Claude with', apiMessages.length, 'messages');
 
-    // Call Claude
-    const response = await callClaude(settings.claudeApiKey, apiMessages, memoryContext, pageContext);
+    // Multi-pass skill loop: Claude triggers skills → data feeds back → Claude analyzes
+    // Supports chaining (e.g., FIND_PROJECT → ANALYZE_PROJECT) up to MAX_PASSES
+    var MAX_PASSES = 3;
+    var allSkillResults = [];
+    var currentMessages = apiMessages;
+    var finalText = '';
+    var finalSources = [];
+    var totalUsage = { input_tokens: 0, output_tokens: 0 };
 
-    console.log('[BetterBoss] Claude response received, text length:', response.text.length);
+    for (var pass = 0; pass < MAX_PASSES; pass++) {
+      console.log('[BetterBoss] Pass ' + (pass + 1) + '/' + MAX_PASSES);
 
-    // Execute any skill triggers
-    const skillResults = [];
-    if (response.skillTriggers.length > 0 && !settings.jobtreadToken) {
-      // Filter out non-JT skills that don't need a token
-      const needsToken = response.skillTriggers.some(t => t.skill !== 'BOOK_CALL' && t.skill !== 'SAVE_MEMORY');
-      if (needsToken) {
-        skillResults.push({ type: 'error_notice', error: 'Set your JobTread grant key in Settings to use data skills.' });
+      var response = await callClaude(settings.claudeApiKey, currentMessages, memoryContext, pageContext);
+      finalText = response.text;
+      finalSources = finalSources.concat(response.sources || []);
+      if (response.usage) {
+        totalUsage.input_tokens += response.usage.input_tokens || 0;
+        totalUsage.output_tokens += response.usage.output_tokens || 0;
       }
-    }
-    for (const trigger of response.skillTriggers) {
-      // BOOK_CALL and SAVE_MEMORY don't need a JT token
-      if (trigger.skill === 'BOOK_CALL' || trigger.skill === 'SAVE_MEMORY') {
-        const result = await executeSkillAction('', trigger.skill, trigger.param);
-        if (result.type === 'memory_save') {
-          await Memory.saveNote(result.key, result.value);
-          result.success = true;
+
+      // Always handle BOOK_CALL and SAVE_MEMORY (no JT token needed)
+      for (var ti = 0; ti < response.skillTriggers.length; ti++) {
+        var trigger = response.skillTriggers[ti];
+        if (trigger.skill === 'BOOK_CALL' || trigger.skill === 'SAVE_MEMORY') {
+          var result = await executeSkillAction('', trigger.skill, trigger.param);
+          if (result.type === 'memory_save') {
+            await Memory.saveNote(result.key, result.value);
+            result.success = true;
+          }
+          allSkillResults.push(result);
         }
-        skillResults.push(result);
-        continue;
       }
-      // All other skills need a JT token
-      if (!settings.jobtreadToken) continue;
-      const result = await executeSkillAction(settings.jobtreadToken, trigger.skill, trigger.param);
-      skillResults.push(result);
-    }
 
-    // Check if we got data results that Claude should analyze
-    var dataResults = skillResults.filter(function(r) {
-      return !r.error && r.type !== 'error_notice' && r.type !== 'booking' && r.type !== 'memory_save';
-    });
-
-    var finalText = response.text;
-    var finalSources = response.sources;
-    var totalUsage = response.usage;
-
-    if (dataResults.length > 0) {
-      // Second pass: feed real JT data back to Claude for analysis
-      var dataSummary = formatSkillResultsForClaude(skillResults);
-      console.log('[BetterBoss] Making analysis call with JT data (' + dataSummary.length + ' chars)');
-
-      var analysisMessages = apiMessages.concat([
-        { role: 'assistant', content: response.text },
-        { role: 'user', content: 'Here is the live data from JobTread:\n\n' + dataSummary + '\n\nNow analyze this data. Reference the ACTUAL numbers above. Give specific, actionable insights and flag anything that needs attention. Do NOT include any [SKILL:] tags — the data is already retrieved.' }
-      ]);
-
-      try {
-        var analysis = await callClaude(settings.claudeApiKey, analysisMessages, memoryContext, pageContext);
-        finalText = analysis.text;
-        finalSources = response.sources.concat(analysis.sources || []);
-        // Combine usage from both calls
-        if (analysis.usage && totalUsage) {
-          totalUsage = {
-            input_tokens: (totalUsage.input_tokens || 0) + (analysis.usage.input_tokens || 0),
-            output_tokens: (totalUsage.output_tokens || 0) + (analysis.usage.output_tokens || 0),
-          };
+      // On first pass: show error if JT token missing
+      if (pass === 0 && response.skillTriggers.length > 0 && !settings.jobtreadToken) {
+        var needsToken = response.skillTriggers.some(function(t) { return t.skill !== 'BOOK_CALL' && t.skill !== 'SAVE_MEMORY'; });
+        if (needsToken) {
+          allSkillResults.push({ type: 'error_notice', error: 'Set your JobTread grant key in Settings to use data skills.' });
         }
-        console.log('[BetterBoss] Analysis complete:', finalText.length, 'chars');
-      } catch (analysisErr) {
-        console.warn('[BetterBoss] Analysis call failed, using first response:', analysisErr.message);
-        // Fall back to first response text
       }
+
+      // Execute data skills (skip on last pass — they won't lead to another analysis)
+      var isLastPass = (pass === MAX_PASSES - 1);
+      if (!isLastPass && settings.jobtreadToken) {
+        var dataSkillTriggers = response.skillTriggers.filter(function(t) { return t.skill !== 'BOOK_CALL' && t.skill !== 'SAVE_MEMORY'; });
+        if (dataSkillTriggers.length > 0) {
+          var newSkillResults = [];
+          for (var di = 0; di < dataSkillTriggers.length; di++) {
+            var dResult = await executeSkillAction(settings.jobtreadToken, dataSkillTriggers[di].skill, dataSkillTriggers[di].param);
+            newSkillResults.push(dResult);
+            allSkillResults.push(dResult);
+          }
+
+          var newData = newSkillResults.filter(function(r) { return !r.error && r.type !== 'error_notice'; });
+          if (newData.length > 0) {
+            // Feed data back to Claude for analysis (or chaining)
+            var dataSummary = formatSkillResultsForClaude(newSkillResults);
+            var nextIsLast = (pass + 1 >= MAX_PASSES - 1);
+            console.log('[BetterBoss] Pass ' + (pass + 1) + ' got data (' + dataSummary.length + ' chars), nextIsLast=' + nextIsLast);
+
+            currentMessages = currentMessages.concat([
+              { role: 'assistant', content: response.text },
+              { role: 'user', content: 'Here is the live data from JobTread:\n\n' + dataSummary + '\n\n' +
+                (nextIsLast
+                  ? 'Analyze this data. Reference the ACTUAL numbers. Give specific, actionable insights and flag anything that needs attention. Do NOT include any [SKILL:] tags.'
+                  : 'Analyze this data. If you need to drill deeper (e.g., analyze a specific project from search results using its ID), include the appropriate [SKILL:] tag. Otherwise, provide your analysis with specific numbers and actionable insights.') }
+            ]);
+            continue; // next pass
+          }
+        }
+      }
+
+      break; // No data skills triggered or no data returned — done
     }
 
-    // Save assistant message (analysis text if two-pass, or first response if no skills)
-    await Memory.saveMessage('assistant', finalText, finalSources, skillResults);
-
-    return { text: finalText, sources: finalSources, skillResults: skillResults, usage: totalUsage };
+    // Save and return
+    await Memory.saveMessage('assistant', finalText, finalSources, allSkillResults);
+    return { text: finalText, sources: finalSources, skillResults: allSkillResults, usage: totalUsage };
   } catch (err) {
     console.error('[BetterBoss ' + BG_VERSION + '] handleChat error:', err);
     return { error: 'Chat error: ' + (err.message || String(err)) };

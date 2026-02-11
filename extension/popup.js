@@ -129,7 +129,13 @@ function appendMessage(role, text, sources, skillResults, usage) {
         container.appendChild(noticeDiv);
         continue;
       }
-      if (result.error) continue;
+      if (result.error) {
+        var errDiv = document.createElement('div');
+        errDiv.className = 'sources-box';
+        errDiv.innerHTML = '<div style="font-size:12px;color:#ef4444;">\u274C ' + escapeHtml(result.skill || 'Skill') + ' failed: ' + escapeHtml(result.error) + '</div>';
+        container.appendChild(errDiv);
+        continue;
+      }
 
       var card = renderInsightResult(result);
       if (card) {
