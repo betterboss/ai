@@ -541,17 +541,17 @@ async function executeSkillAction(grantKey, skill, param) {
             $: { id: orgId },
             activeJobs: {
               _: 'jobs',
-              $: { where: ['closedOn', '=', null], size: 200 },
+              $: { where: ['closedOn', '=', null], size: 100 },
               nodes: { id: {} }
             },
             pendingEstimates: {
               _: 'documents',
-              $: { where: { and: [['type', '=', 'customerOrder'], ['status', '=', 'pending']] }, size: 200 },
+              $: { where: { and: [['type', '=', 'customerOrder'], ['status', '=', 'pending']] }, size: 100 },
               nodes: { id: {}, price: {} }
             },
             unpaidInvoices: {
               _: 'documents',
-              $: { where: { and: [['type', '=', 'customerInvoice'], ['status', '!=', 'paid']] }, size: 200 },
+              $: { where: { and: [['type', '=', 'customerInvoice'], ['status', '!=', 'paid']] }, size: 100 },
               nodes: { id: {}, price: {}, amountPaid: {} }
             }
           }
