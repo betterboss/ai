@@ -143,7 +143,7 @@ Available skill triggers:
 - [SKILL:GET_ESTIMATES:jobId] — Get estimates for a project
 - [SKILL:GET_INVOICES:jobId] — Get invoices for a project
 - [SKILL:GET_TASKS:jobId] — Get tasks for a project
-- [SKILL:EXPORT_CSV:type] — Export data as CSV (projects, contacts, estimates)
+- [SKILL:EXPORT_CSV:type] — Export data as CSV (projects, contacts, catalog)
 - [SKILL:DASHBOARD] — Get dashboard stats
 - [SKILL:SAVE_MEMORY:key:value] — Save something to memory
 - [SKILL:BOOK_CALL] — Show booking widget
@@ -176,14 +176,27 @@ async function callClaude(apiKey, messages, memory, pageContext) {
     max_tokens: 4096,
     system: system,
     messages: messages,
+    tools: [
+      {
+        type: 'web_search_20250305',
+        name: 'web_search',
+        max_uses: 3,
+      }
+    ],
   };
 
   var data = await claudeFetch(apiKey, body);
 
-  // If first call fails, retry without tools
+  // If first call fails, retry without web search tools
   if (data._fetchError) {
     console.warn('[BetterBoss] First attempt failed: ' + data._fetchError + ', retrying without web search');
-    data = await claudeFetch(apiKey, body);
+    var fallbackBody = {
+      model: 'claude-sonnet-4-5-20250929',
+      max_tokens: 4096,
+      system: system,
+      messages: messages,
+    };
+    data = await claudeFetch(apiKey, fallbackBody);
     if (data._fetchError) {
       throw new Error(data._fetchError);
     }
@@ -237,7 +250,7 @@ async function claudeFetch(apiKey, body) {
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
+        'anthropic-version': '2025-04-14',
         'anthropic-dangerous-direct-browser-access': 'true',
       },
       body: JSON.stringify(body),
@@ -369,85 +382,150 @@ async function executeSkillAction(grantKey, skill, param) {
     switch (skill) {
       case 'SEARCH_PROJECTS': {
         var orgId = await getOrgId(grantKey);
-        var jobsInput = { size: 20, sortBy: [{ field: 'createdAt', order: 'desc' }] };
+        var jobsParams = { size: 50, sortBy: [{ field: 'createdAt', order: 'desc' }] };
+        var serverFiltered = false;
         if (param) {
-          jobsInput.where = ['name', '~*', param];
+          jobsParams.where = ['name', '~', param];
+          serverFiltered = true;
         }
-        var data = await paveQuery(grantKey, {
-          organization: {
-            $: { id: orgId },
-            jobs: {
-              $: jobsInput,
-              nodes: {
-                id: {},
-                name: {},
-                number: {},
-                closedOn: {}
-              },
-              nextPage: {}
+        var data;
+        try {
+          data = await paveQuery(grantKey, {
+            organization: {
+              $: { id: orgId },
+              jobs: {
+                $: jobsParams,
+                nodes: { id: {}, name: {}, number: {}, closedOn: {} }
+              }
             }
-          }
-        });
+          });
+        } catch (e) {
+          if (!serverFiltered) throw e;
+          // ~ operator failed — fall back to client-side filter
+          console.warn('[BetterBoss] Server search failed, using client-side filter:', e.message);
+          delete jobsParams.where;
+          serverFiltered = false;
+          data = await paveQuery(grantKey, {
+            organization: {
+              $: { id: orgId },
+              jobs: {
+                $: jobsParams,
+                nodes: { id: {}, name: {}, number: {}, closedOn: {} }
+              }
+            }
+          });
+        }
         var items = (data.organization && data.organization.jobs && data.organization.jobs.nodes) || [];
+        if (param && !serverFiltered) {
+          var search = param.toLowerCase();
+          items = items.filter(function(item) {
+            return (item.name && item.name.toLowerCase().indexOf(search) !== -1) ||
+                   (item.number && String(item.number).toLowerCase().indexOf(search) !== -1);
+          });
+        }
         return { type: 'projects', title: 'Projects' + (param ? ' matching "' + param + '"' : ''), data: items, count: items.length, columns: ['name', 'number', 'closedOn'] };
       }
 
       case 'SEARCH_CONTACTS': {
         var orgId = await getOrgId(grantKey);
-        var contactsInput = { size: 20, sortBy: [{ field: 'name' }] };
+        var contactsParams = { size: 50, sortBy: [{ field: 'name' }] };
+        var serverFiltered = false;
         if (param) {
-          contactsInput.where = ['name', '~*', param];
+          contactsParams.where = ['name', '~', param];
+          serverFiltered = true;
         }
-        var data = await paveQuery(grantKey, {
-          organization: {
-            $: { id: orgId },
-            contacts: {
-              $: contactsInput,
-              nodes: {
-                id: {},
-                name: {},
-                title: {},
-                account: {
+        var data;
+        try {
+          data = await paveQuery(grantKey, {
+            organization: {
+              $: { id: orgId },
+              contacts: {
+                $: contactsParams,
+                nodes: {
                   id: {},
                   name: {},
-                  type: {}
+                  title: {},
+                  account: { id: {}, name: {}, type: {} }
                 }
-              },
-              nextPage: {}
+              }
             }
-          }
-        });
+          });
+        } catch (e) {
+          if (!serverFiltered) throw e;
+          console.warn('[BetterBoss] Server search failed, using client-side filter:', e.message);
+          delete contactsParams.where;
+          serverFiltered = false;
+          data = await paveQuery(grantKey, {
+            organization: {
+              $: { id: orgId },
+              contacts: {
+                $: contactsParams,
+                nodes: {
+                  id: {},
+                  name: {},
+                  title: {},
+                  account: { id: {}, name: {}, type: {} }
+                }
+              }
+            }
+          });
+        }
         var items = (data.organization && data.organization.contacts && data.organization.contacts.nodes) || [];
+        if (param && !serverFiltered) {
+          var search = param.toLowerCase();
+          items = items.filter(function(item) {
+            return (item.name && item.name.toLowerCase().indexOf(search) !== -1) ||
+                   (item.title && item.title.toLowerCase().indexOf(search) !== -1) ||
+                   (item.account && item.account.name && item.account.name.toLowerCase().indexOf(search) !== -1);
+          });
+        }
         return { type: 'contacts', title: 'Contacts' + (param ? ' matching "' + param + '"' : ''), data: items, count: items.length, columns: ['name', 'title', 'account.name', 'account.type'] };
       }
 
       case 'SEARCH_CATALOG': {
         var orgId = await getOrgId(grantKey);
-        var costInput = { size: 20, sortBy: [{ field: 'name' }] };
+        var costParams = { size: 50, sortBy: [{ field: 'name' }] };
+        var serverFiltered = false;
         if (param) {
-          costInput.where = ['name', '~*', param];
+          costParams.where = ['name', '~', param];
+          serverFiltered = true;
         }
-        var data = await paveQuery(grantKey, {
-          organization: {
-            $: { id: orgId },
-            costItems: {
-              $: costInput,
-              nodes: {
-                id: {},
-                name: {},
-                unitPrice: {},
-                unitCost: {},
-                unit: { id: {}, name: {} }
-              },
-              nextPage: {}
+        var data;
+        try {
+          data = await paveQuery(grantKey, {
+            organization: {
+              $: { id: orgId },
+              costItems: {
+                $: costParams,
+                nodes: { id: {}, name: {}, unitPrice: {}, unitCost: {}, unit: { id: {}, name: {} } }
+              }
             }
-          }
-        });
+          });
+        } catch (e) {
+          if (!serverFiltered) throw e;
+          console.warn('[BetterBoss] Server search failed, using client-side filter:', e.message);
+          delete costParams.where;
+          serverFiltered = false;
+          data = await paveQuery(grantKey, {
+            organization: {
+              $: { id: orgId },
+              costItems: {
+                $: costParams,
+                nodes: { id: {}, name: {}, unitPrice: {}, unitCost: {}, unit: { id: {}, name: {} } }
+              }
+            }
+          });
+        }
         var items = (data.organization && data.organization.costItems && data.organization.costItems.nodes) || [];
-        // Flatten unit name
         items = items.map(function(item) {
           return Object.assign({}, item, { unitName: (item.unit && item.unit.name) || '' });
         });
+        if (param && !serverFiltered) {
+          var search = param.toLowerCase();
+          items = items.filter(function(item) {
+            return (item.name && item.name.toLowerCase().indexOf(search) !== -1);
+          });
+        }
         return { type: 'catalog', title: 'Catalog items' + (param ? ' matching "' + param + '"' : ''), data: items, count: items.length, columns: ['name', 'unitPrice', 'unitCost', 'unitName'] };
       }
 
@@ -458,29 +536,36 @@ async function executeSkillAction(grantKey, skill, param) {
             $: { id: orgId },
             activeJobs: {
               _: 'jobs',
-              $: { where: ['closedOn', '=', null] },
+              $: { where: ['closedOn', '=', null], size: 200 },
               nodes: { id: {} }
             },
             pendingEstimates: {
               _: 'documents',
-              $: { where: { and: [['type', '=', 'customerOrder'], ['status', '=', 'pending']] } },
-              nodes: { id: {} }
+              $: { where: { and: [['type', '=', 'customerOrder'], ['status', '=', 'pending']] }, size: 200 },
+              nodes: { id: {}, price: {} }
             },
             unpaidInvoices: {
               _: 'documents',
-              $: { where: { and: [['type', '=', 'customerInvoice'], ['status', '=', 'pending']] } },
-              nodes: { id: {} }
+              $: { where: { and: [['type', '=', 'customerInvoice'], ['status', '!=', 'paid']] }, size: 200 },
+              nodes: { id: {}, price: {}, amountPaid: {} }
             }
           }
         });
         var org = data.organization || {};
+        var activeNodes = (org.activeJobs && org.activeJobs.nodes) || [];
+        var estNodes = (org.pendingEstimates && org.pendingEstimates.nodes) || [];
+        var invNodes = (org.unpaidInvoices && org.unpaidInvoices.nodes) || [];
+        var estTotal = estNodes.reduce(function(sum, n) { return sum + (n.price || 0); }, 0);
+        var invTotal = invNodes.reduce(function(sum, n) { return sum + ((n.price || 0) - (n.amountPaid || 0)); }, 0);
         return {
           type: 'dashboard',
           title: 'Dashboard Stats',
           data: {
-            activeJobs: (org.activeJobs && org.activeJobs.nodes && org.activeJobs.nodes.length) || 0,
-            pendingEstimates: (org.pendingEstimates && org.pendingEstimates.nodes && org.pendingEstimates.nodes.length) || 0,
-            unpaidInvoices: (org.unpaidInvoices && org.unpaidInvoices.nodes && org.unpaidInvoices.nodes.length) || 0,
+            activeJobs: activeNodes.length,
+            pendingEstimates: estNodes.length,
+            pendingEstimatesTotal: estTotal,
+            unpaidInvoices: invNodes.length,
+            unpaidInvoicesTotal: invTotal,
           }
         };
       }
@@ -499,6 +584,20 @@ async function executeSkillAction(grantKey, skill, param) {
         return { type: 'project', title: 'Project Details', data: data.job || {} };
       }
 
+      case 'GET_CONTACT': {
+        var data = await paveQuery(grantKey, {
+          contact: {
+            $: { id: param },
+            id: {},
+            name: {},
+            title: {},
+            account: { id: {}, name: {}, type: {} }
+          }
+        });
+        var contact = data.contact || {};
+        return { type: 'contact', title: 'Contact: ' + (contact.name || 'Unknown'), data: contact };
+      }
+
       case 'GET_ESTIMATES': {
         var data = await paveQuery(grantKey, {
           job: {
@@ -506,7 +605,7 @@ async function executeSkillAction(grantKey, skill, param) {
             id: {},
             name: {},
             documents: {
-              $: { where: { and: [['type', '=', 'customerOrder'], ['status', '=', 'pending']] }, size: 20 },
+              $: { where: ['type', '=', 'customerOrder'], size: 50, sortBy: [{ field: 'createdAt', order: 'desc' }] },
               nodes: {
                 id: {},
                 name: {},
@@ -519,7 +618,7 @@ async function executeSkillAction(grantKey, skill, param) {
           }
         });
         var items = (data.job && data.job.documents && data.job.documents.nodes) || [];
-        return { type: 'estimates', title: 'Estimates', data: items, count: items.length, columns: ['name', 'number', 'status', 'price', 'cost'] };
+        return { type: 'estimates', title: 'Estimates for ' + ((data.job && data.job.name) || 'project'), data: items, count: items.length, columns: ['name', 'number', 'status', 'price', 'cost'] };
       }
 
       case 'GET_INVOICES': {
@@ -529,7 +628,7 @@ async function executeSkillAction(grantKey, skill, param) {
             id: {},
             name: {},
             documents: {
-              $: { where: ['type', '=', 'customerInvoice'], size: 20 },
+              $: { where: ['type', '=', 'customerInvoice'], size: 50, sortBy: [{ field: 'createdAt', order: 'desc' }] },
               nodes: {
                 id: {},
                 name: {},
@@ -542,7 +641,7 @@ async function executeSkillAction(grantKey, skill, param) {
           }
         });
         var items = (data.job && data.job.documents && data.job.documents.nodes) || [];
-        return { type: 'invoices', title: 'Invoices', data: items, count: items.length, columns: ['name', 'number', 'status', 'price', 'amountPaid'] };
+        return { type: 'invoices', title: 'Invoices for ' + ((data.job && data.job.name) || 'project'), data: items, count: items.length, columns: ['name', 'number', 'status', 'price', 'amountPaid'] };
       }
 
       case 'GET_TASKS': {
@@ -765,18 +864,31 @@ async function handleChat(text) {
 
     // Execute any skill triggers
     const skillResults = [];
-    if (response.skillTriggers.length > 0 && settings.jobtreadToken) {
-      for (const trigger of response.skillTriggers) {
-        const result = await executeSkillAction(settings.jobtreadToken, trigger.skill, trigger.param);
+    if (response.skillTriggers.length > 0 && !settings.jobtreadToken) {
+      // Filter out non-JT skills that don't need a token
+      const needsToken = response.skillTriggers.some(t => t.skill !== 'BOOK_CALL' && t.skill !== 'SAVE_MEMORY');
+      if (needsToken) {
+        skillResults.push({ type: 'error_notice', error: 'Set your JobTread grant key in Settings to use data skills.' });
+      }
+    }
+    for (const trigger of response.skillTriggers) {
+      // BOOK_CALL and SAVE_MEMORY don't need a JT token
+      if (trigger.skill === 'BOOK_CALL' || trigger.skill === 'SAVE_MEMORY') {
+        const result = await executeSkillAction('', trigger.skill, trigger.param);
         if (result.type === 'memory_save') {
           await Memory.saveNote(result.key, result.value);
           result.success = true;
         }
-        if (result.exportAs === 'csv') {
-          result.downloadInfo = downloadCSV(result);
-        }
         skillResults.push(result);
+        continue;
       }
+      // All other skills need a JT token
+      if (!settings.jobtreadToken) continue;
+      const result = await executeSkillAction(settings.jobtreadToken, trigger.skill, trigger.param);
+      if (result.exportAs === 'csv') {
+        result.downloadInfo = downloadCSV(result);
+      }
+      skillResults.push(result);
     }
 
     // Save assistant message

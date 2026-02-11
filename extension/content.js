@@ -108,21 +108,6 @@
         sendResponse(extractTableAsJSON());
         break;
 
-      case 'CLICK_ELEMENT':
-        clickElement(message.selector);
-        sendResponse({ success: true });
-        break;
-
-      case 'FILL_FIELD':
-        fillField(message.selector, message.value);
-        sendResponse({ success: true });
-        break;
-
-      case 'NAVIGATE':
-        window.location.href = message.url;
-        sendResponse({ success: true });
-        break;
-
       default:
         sendResponse({ error: 'Unknown action' });
     }
@@ -147,20 +132,6 @@
     });
 
     return { headers, data, rowCount: data.length };
-  }
-
-  function clickElement(selector) {
-    const el = document.querySelector(selector);
-    if (el) el.click();
-  }
-
-  function fillField(selector, value) {
-    const el = document.querySelector(selector);
-    if (el) {
-      el.value = value;
-      el.dispatchEvent(new Event('input', { bubbles: true }));
-      el.dispatchEvent(new Event('change', { bubbles: true }));
-    }
   }
 
   // ── Auto-report context on page change ──────────────────

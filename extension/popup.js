@@ -73,6 +73,7 @@ async function sendChat() {
   appendMessage('user', text);
   showTyping();
   isLoading = true;
+  document.getElementById('btnSend').disabled = true;
 
   try {
     const response = await chrome.runtime.sendMessage({ action: 'CHAT', text });
@@ -90,6 +91,7 @@ async function sendChat() {
   }
 
   isLoading = false;
+  document.getElementById('btnSend').disabled = false;
 }
 
 function appendMessage(role, text, sources = [], skillResults = []) {
@@ -110,20 +112,41 @@ function appendMessage(role, text, sources = [], skillResults = []) {
   if (sources && sources.length > 0) {
     const srcDiv = document.createElement('div');
     srcDiv.className = 'sources-box';
-    srcDiv.innerHTML = `
-      <div class="sources-label">Sources</div>
-      <div class="sources-list">
-        ${sources.map(s => `<a class="source-chip" href="${s.url}" target="_blank">${s.title || getDomain(s.url)}</a>`).join('')}
-      </div>
-    `;
+    const label = document.createElement('div');
+    label.className = 'sources-label';
+    label.textContent = 'Sources';
+    srcDiv.appendChild(label);
+    const list = document.createElement('div');
+    list.className = 'sources-list';
+    for (const s of sources) {
+      const chip = document.createElement('a');
+      chip.className = 'source-chip';
+      chip.href = s.url;
+      chip.target = '_blank';
+      chip.textContent = s.title || getDomain(s.url);
+      list.appendChild(chip);
+    }
+    srcDiv.appendChild(list);
     container.appendChild(srcDiv);
   }
 
   // Skill results
   if (skillResults && skillResults.length > 0) {
     for (const result of skillResults) {
+      if (result.type === 'error_notice') {
+        const noticeDiv = document.createElement('div');
+        noticeDiv.className = 'sources-box';
+        noticeDiv.innerHTML = `<div style="font-size:12px;color:#f59e0b;">⚠️ ${escapeHtml(result.error)}</div>`;
+        container.appendChild(noticeDiv);
+        continue;
+      }
       if (result.error) continue;
-      if (result.type === 'booking') {
+      if (result.type === 'memory_save') {
+        const memDiv = document.createElement('div');
+        memDiv.className = 'sources-box';
+        memDiv.innerHTML = `<div style="font-size:12px;color:#10b981;">🧠 Saved to memory: <strong>${escapeHtml(result.key)}</strong> = ${escapeHtml(result.value)}</div>`;
+        container.appendChild(memDiv);
+      } else if (result.type === 'booking') {
         const bookDiv = document.createElement('div');
         bookDiv.className = 'booking-inline';
         bookDiv.innerHTML = `
@@ -133,6 +156,8 @@ function appendMessage(role, text, sources = [], skillResults = []) {
         container.appendChild(bookDiv);
       } else if (Array.isArray(result.data) && result.data.length > 0) {
         container.appendChild(renderSkillResult(result));
+      } else if (result.data && typeof result.data === 'object' && !Array.isArray(result.data) && result.type !== 'dashboard') {
+        container.appendChild(renderDetailCard(result));
       } else if (result.type === 'dashboard') {
         container.appendChild(renderDashboard(result.data));
       }
@@ -181,17 +206,22 @@ function renderSkillResult(result) {
     tableHTML += `<div class="sub" style="margin-top:6px;">+ ${result.data.length - 8} more rows</div>`;
   }
 
-  tableHTML += `
-    <div class="skill-result-actions">
-      <button class="small-btn" onclick="downloadCSV(${JSON.stringify(result).replace(/"/g, '&quot;')})">📄 Download CSV</button>
-    </div>
-  `;
-
   div.innerHTML = tableHTML;
+
+  const actionsDiv = document.createElement('div');
+  actionsDiv.className = 'skill-result-actions';
+  const csvBtn = document.createElement('button');
+  csvBtn.className = 'small-btn';
+  csvBtn.textContent = '📄 Download CSV';
+  csvBtn.addEventListener('click', () => downloadCSV(result));
+  actionsDiv.appendChild(csvBtn);
+  div.appendChild(actionsDiv);
+
   return div;
 }
 
 function renderDashboard(data) {
+  const fmt = (n) => typeof n === 'number' ? '$' + n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '$0.00';
   const div = document.createElement('div');
   div.className = 'skill-result-card';
   div.innerHTML = `
@@ -204,13 +234,44 @@ function renderDashboard(data) {
       <div style="flex:1;text-align:center;padding:10px;background:rgba(245,158,11,0.1);border-radius:10px;">
         <div style="font-size:24px;font-weight:700;color:#f59e0b;">${data.pendingEstimates}</div>
         <div style="font-size:11px;color:#6b6b8a;">Pending Estimates</div>
+        <div style="font-size:13px;font-weight:600;color:#f59e0b;margin-top:4px;">${fmt(data.pendingEstimatesTotal)}</div>
       </div>
       <div style="flex:1;text-align:center;padding:10px;background:rgba(16,185,129,0.1);border-radius:10px;">
         <div style="font-size:24px;font-weight:700;color:#10b981;">${data.unpaidInvoices}</div>
         <div style="font-size:11px;color:#6b6b8a;">Unpaid Invoices</div>
+        <div style="font-size:13px;font-weight:600;color:#10b981;margin-top:4px;">${fmt(data.unpaidInvoicesTotal)}</div>
       </div>
     </div>
   `;
+  return div;
+}
+
+function renderDetailCard(result) {
+  const div = document.createElement('div');
+  div.className = 'skill-result-card';
+  const data = result.data || {};
+  const entries = Object.entries(data).filter(([k, v]) => k !== 'id' && v != null && typeof v !== 'object');
+  let html = `<div class="skill-result-title">${escapeHtml(result.title || 'Details')}</div>`;
+  html += '<div style="display:flex;flex-direction:column;gap:4px;margin-top:6px;">';
+  for (const [key, val] of entries) {
+    html += `<div style="display:flex;gap:8px;font-size:12px;">
+      <span style="color:#a78bfa;font-weight:600;min-width:90px;">${escapeHtml(key)}</span>
+      <span style="color:#9b9bb8;">${escapeHtml(String(val))}</span>
+    </div>`;
+  }
+  // Render nested objects (e.g. account)
+  const nested = Object.entries(data).filter(([k, v]) => v && typeof v === 'object' && !Array.isArray(v));
+  for (const [key, obj] of nested) {
+    for (const [nk, nv] of Object.entries(obj)) {
+      if (nk === 'id' || nv == null) continue;
+      html += `<div style="display:flex;gap:8px;font-size:12px;">
+        <span style="color:#a78bfa;font-weight:600;min-width:90px;">${escapeHtml(key + '.' + nk)}</span>
+        <span style="color:#9b9bb8;">${escapeHtml(String(nv))}</span>
+      </div>`;
+    }
+  }
+  html += '</div>';
+  div.innerHTML = html;
   return div;
 }
 
@@ -344,6 +405,9 @@ async function executeSkill(skillId, param) {
     if (Array.isArray(response.data)) {
       resultDiv.innerHTML = '';
       resultDiv.appendChild(renderSkillResult(response));
+    } else if (response.data && typeof response.data === 'object') {
+      resultDiv.innerHTML = '';
+      resultDiv.appendChild(renderDetailCard(response));
     } else {
       resultDiv.innerHTML = `<pre style="font-size:11px;white-space:pre-wrap;padding:12px;">${JSON.stringify(response.data, null, 2)}</pre>`;
     }
@@ -608,7 +672,9 @@ function renderMarkdown(text) {
 }
 
 function inlineFmt(str) {
-  return str
+  // Escape HTML first to prevent injection, then apply markdown
+  const safe = str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return safe
     .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>')
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*([^*]+)\*/g, '<em>$1</em>')
