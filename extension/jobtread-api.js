@@ -1,7 +1,7 @@
 // JobTread GraphQL API Client
 // API: https://api.jobtread.com/ (Bearer token auth)
 
-const JT_API = 'https://api.jobtread.com/';
+const JT_API = 'https://api.jobtread.com/graphql';
 
 export class JobTreadAPI {
   constructor(token) {

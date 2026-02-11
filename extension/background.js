@@ -271,7 +271,7 @@ async function claudeFetch(apiKey, body) {
 // JOBTREAD API
 // ═══════════════════════════════════════════════════════════
 
-const JT_API = 'https://api.jobtread.com/';
+const JT_API = 'https://api.jobtread.com/graphql';
 
 async function jtQuery(token, gql, variables) {
   var res;
