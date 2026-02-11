@@ -864,18 +864,31 @@ async function handleChat(text) {
 
     // Execute any skill triggers
     const skillResults = [];
-    if (response.skillTriggers.length > 0 && settings.jobtreadToken) {
-      for (const trigger of response.skillTriggers) {
-        const result = await executeSkillAction(settings.jobtreadToken, trigger.skill, trigger.param);
+    if (response.skillTriggers.length > 0 && !settings.jobtreadToken) {
+      // Filter out non-JT skills that don't need a token
+      const needsToken = response.skillTriggers.some(t => t.skill !== 'BOOK_CALL' && t.skill !== 'SAVE_MEMORY');
+      if (needsToken) {
+        skillResults.push({ type: 'error_notice', error: 'Set your JobTread grant key in Settings to use data skills.' });
+      }
+    }
+    for (const trigger of response.skillTriggers) {
+      // BOOK_CALL and SAVE_MEMORY don't need a JT token
+      if (trigger.skill === 'BOOK_CALL' || trigger.skill === 'SAVE_MEMORY') {
+        const result = await executeSkillAction('', trigger.skill, trigger.param);
         if (result.type === 'memory_save') {
           await Memory.saveNote(result.key, result.value);
           result.success = true;
         }
-        if (result.exportAs === 'csv') {
-          result.downloadInfo = downloadCSV(result);
-        }
         skillResults.push(result);
+        continue;
       }
+      // All other skills need a JT token
+      if (!settings.jobtreadToken) continue;
+      const result = await executeSkillAction(settings.jobtreadToken, trigger.skill, trigger.param);
+      if (result.exportAs === 'csv') {
+        result.downloadInfo = downloadCSV(result);
+      }
+      skillResults.push(result);
     }
 
     // Save assistant message
