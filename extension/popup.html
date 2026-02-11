@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=420">
+  <title>Mr. Better Boss ⚡</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Header -->
+    <header id="header">
+      <div class="avatar">
+        <span class="avatar-eyes"><span class="eye"></span><span class="eye"></span></span>
+        <span class="avatar-bolt">⚡</span>
+      </div>
+      <div class="header-info">
+        <div class="header-title">Mr. Better Boss <span class="bolt">⚡</span></div>
+        <div class="header-sub" id="pageStatus">JobTread AI Assistant</div>
+      </div>
+      <div class="header-actions">
+        <button class="icon-btn" id="btnMemory" title="Memory">🧠</button>
+        <button class="icon-btn" id="btnSettings" title="Settings">⚙️</button>
+      </div>
+    </header>
+
+    <!-- Tab Bar -->
+    <nav id="tabBar">
+      <button class="tab active" data-tab="chat">💬 Chat</button>
+      <button class="tab" data-tab="skills">⚡ Skills</button>
+      <button class="tab" data-tab="memory">🧠 Memory</button>
+      <button class="tab" data-tab="settings">⚙️ Settings</button>
+    </nav>
+
+    <!-- Chat Panel -->
+    <div id="panel-chat" class="panel active">
+      <div id="chatMessages" class="chat-messages">
+        <div class="welcome">
+          <div class="welcome-robot">
+            <span class="welcome-eyes"><span class="eye lg"></span><span class="eye lg"></span></span>
+            <span class="welcome-bolt">⚡</span>
+          </div>
+          <h2>Hey there! ⚡</h2>
+          <p>I'm your AI JobTread assistant with <strong>memory</strong>, <strong>skills</strong>, and <strong>direct API access</strong> to your JobTread account.</p>
+          <p class="sub">Try: "Search my projects for kitchen remodel" or "Export my contacts as CSV"</p>
+        </div>
+      </div>
+      <div class="chat-input-area">
+        <div class="chat-input-wrap">
+          <input type="text" id="chatInput" placeholder="Ask anything about JobTread..." autocomplete="off">
+          <button id="btnSend" class="send-btn">➤</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Skills Panel -->
+    <div id="panel-skills" class="panel">
+      <div class="skills-grid" id="skillsGrid"></div>
+      <div class="skill-input-area" id="skillInputArea" style="display:none;">
+        <div class="skill-active" id="skillActive"></div>
+        <div class="chat-input-wrap">
+          <input type="text" id="skillInput" placeholder="Enter search query..." autocomplete="off">
+          <button id="btnSkillRun" class="send-btn">▶</button>
+        </div>
+      </div>
+      <div class="skill-result" id="skillResult" style="display:none;"></div>
+    </div>
+
+    <!-- Memory Panel -->
+    <div id="panel-memory" class="panel">
+      <div class="memory-header">
+        <h3>Saved Memory</h3>
+        <button class="small-btn danger" id="btnClearMemory">Clear All</button>
+      </div>
+      <div class="memory-add">
+        <input type="text" id="memoryKey" placeholder="Key (e.g. client_name)">
+        <input type="text" id="memoryValue" placeholder="Value">
+        <button class="small-btn primary" id="btnAddMemory">Save</button>
+      </div>
+      <div id="memoryList" class="memory-list"></div>
+      <div class="memory-section">
+        <h3>Conversation History</h3>
+        <p class="sub" id="conversationCount">0 messages</p>
+        <div class="memory-actions">
+          <button class="small-btn" id="btnExportMemory">Export All</button>
+          <button class="small-btn danger" id="btnClearChat">Clear Chat</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings Panel -->
+    <div id="panel-settings" class="panel">
+      <div class="setting-group">
+        <label>Claude API Key</label>
+        <div class="input-row">
+          <input type="password" id="settingClaudeKey" placeholder="sk-ant-api03-...">
+          <button class="icon-btn sm" id="btnToggleKey">👁️</button>
+        </div>
+        <p class="help">Get a key from <a href="https://console.anthropic.com/settings/keys" target="_blank">console.anthropic.com</a></p>
+      </div>
+      <div class="setting-group">
+        <label>JobTread API Token</label>
+        <div class="input-row">
+          <input type="password" id="settingJtToken" placeholder="Your JobTread API token">
+          <button class="icon-btn sm" id="btnToggleJtKey">👁️</button>
+        </div>
+        <p class="help">Found in JobTread → Settings → API</p>
+      </div>
+      <button class="primary-btn" id="btnSaveSettings">💾 Save Settings</button>
+      <div class="setting-divider"></div>
+      <div class="setting-group">
+        <label>About</label>
+        <p class="about">Built by <a href="https://better-boss.ai" target="_blank">Better Boss</a> — JobTread Certified Implementation Partner</p>
+        <button class="booking-btn" id="btnBookCall">📞 Book FREE Growth Audit Call</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
