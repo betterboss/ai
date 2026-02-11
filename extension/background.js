@@ -176,14 +176,27 @@ async function callClaude(apiKey, messages, memory, pageContext) {
     max_tokens: 4096,
     system: system,
     messages: messages,
+    tools: [
+      {
+        type: 'web_search_20250305',
+        name: 'web_search',
+        max_uses: 3,
+      }
+    ],
   };
 
   var data = await claudeFetch(apiKey, body);
 
-  // If first call fails, retry without tools
+  // If first call fails, retry without web search tools
   if (data._fetchError) {
     console.warn('[BetterBoss] First attempt failed: ' + data._fetchError + ', retrying without web search');
-    data = await claudeFetch(apiKey, body);
+    var fallbackBody = {
+      model: 'claude-sonnet-4-5-20250929',
+      max_tokens: 4096,
+      system: system,
+      messages: messages,
+    };
+    data = await claudeFetch(apiKey, fallbackBody);
     if (data._fetchError) {
       throw new Error(data._fetchError);
     }
@@ -237,7 +250,7 @@ async function claudeFetch(apiKey, body) {
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
+        'anthropic-version': '2025-04-14',
         'anthropic-dangerous-direct-browser-access': 'true',
       },
       body: JSON.stringify(body),

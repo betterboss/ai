@@ -110,12 +110,21 @@ function appendMessage(role, text, sources = [], skillResults = []) {
   if (sources && sources.length > 0) {
     const srcDiv = document.createElement('div');
     srcDiv.className = 'sources-box';
-    srcDiv.innerHTML = `
-      <div class="sources-label">Sources</div>
-      <div class="sources-list">
-        ${sources.map(s => `<a class="source-chip" href="${s.url}" target="_blank">${s.title || getDomain(s.url)}</a>`).join('')}
-      </div>
-    `;
+    const label = document.createElement('div');
+    label.className = 'sources-label';
+    label.textContent = 'Sources';
+    srcDiv.appendChild(label);
+    const list = document.createElement('div');
+    list.className = 'sources-list';
+    for (const s of sources) {
+      const chip = document.createElement('a');
+      chip.className = 'source-chip';
+      chip.href = s.url;
+      chip.target = '_blank';
+      chip.textContent = s.title || getDomain(s.url);
+      list.appendChild(chip);
+    }
+    srcDiv.appendChild(list);
     container.appendChild(srcDiv);
   }
 
@@ -181,13 +190,17 @@ function renderSkillResult(result) {
     tableHTML += `<div class="sub" style="margin-top:6px;">+ ${result.data.length - 8} more rows</div>`;
   }
 
-  tableHTML += `
-    <div class="skill-result-actions">
-      <button class="small-btn" onclick="downloadCSV(${JSON.stringify(result).replace(/"/g, '&quot;')})">📄 Download CSV</button>
-    </div>
-  `;
-
   div.innerHTML = tableHTML;
+
+  const actionsDiv = document.createElement('div');
+  actionsDiv.className = 'skill-result-actions';
+  const csvBtn = document.createElement('button');
+  csvBtn.className = 'small-btn';
+  csvBtn.textContent = '📄 Download CSV';
+  csvBtn.addEventListener('click', () => downloadCSV(result));
+  actionsDiv.appendChild(csvBtn);
+  div.appendChild(actionsDiv);
+
   return div;
 }
 
