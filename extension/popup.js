@@ -461,6 +461,7 @@ function setupSettings() {
   document.getElementById('btnBookCall').addEventListener('click', () => {
     window.open('https://cal.com/mybetterboss.ai/jobtread-free-growth-audit-call', '_blank');
   });
+  document.getElementById('btnTestConnection').addEventListener('click', testConnection);
 }
 
 async function loadSettings() {
@@ -484,6 +485,37 @@ async function saveSettings() {
   setTimeout(() => {
     document.getElementById('btnSaveSettings').textContent = '💾 Save Settings';
   }, 2000);
+}
+
+async function testConnection() {
+  const resultDiv = document.getElementById('testResult');
+  const btn = document.getElementById('btnTestConnection');
+  resultDiv.style.display = 'block';
+  resultDiv.style.background = 'rgba(107,107,138,0.1)';
+  resultDiv.style.color = '#6b6b8a';
+  resultDiv.textContent = 'Testing connection...';
+  btn.disabled = true;
+
+  try {
+    // Save settings first so token is available
+    await saveSettings();
+    const response = await chrome.runtime.sendMessage({ action: 'TEST_JT_CONNECTION' });
+    if (response.error) {
+      resultDiv.style.background = 'rgba(239,68,68,0.1)';
+      resultDiv.style.color = '#ef4444';
+      resultDiv.textContent = 'Failed: ' + response.error;
+    } else {
+      resultDiv.style.background = 'rgba(16,185,129,0.1)';
+      resultDiv.style.color = '#10b981';
+      resultDiv.textContent = 'Connected! ' + (response.info || '');
+    }
+  } catch (err) {
+    resultDiv.style.background = 'rgba(239,68,68,0.1)';
+    resultDiv.style.color = '#ef4444';
+    resultDiv.textContent = 'Error: ' + err.message;
+  }
+
+  btn.disabled = false;
 }
 
 // ── Page Status ─────────────────────────────────────────────
