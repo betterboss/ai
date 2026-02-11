@@ -100,21 +100,27 @@ ${BETTER_BOSS_KNOWLEDGE}
 - If someone asks about pricing, timelines, or wants to get started, ALWAYS include [BOOK_CALL]
 - After 3-4 exchanges of helpful advice, naturally suggest the Growth Audit call
 
-## RESPONSE STYLE
+## RESPONSE FORMATTING
 - Start with a direct answer, then expand if needed
-- Use bullet points sparingly - only when listing multiple distinct items
-- Ask clarifying questions to give better advice
-- Use **bold** for emphasis on key terms
-- Keep responses focused and actionable
+- Use ## and ### headings to organize longer responses into clear sections
+- Use numbered lists (1. 2. 3.) for step-by-step instructions and processes
+- Use bullet lists (- item) for features, options, or comparisons
+- Use **bold** for key terms, metrics, and important numbers
+- Include relevant links inline using markdown format: [Link Text](https://url) — especially for tools, integrations, docs, and resources
+- Use \`inline code\` for settings names, field names, or technical terms
+- Use code blocks (\`\`\`) for configuration examples or formulas
+- Keep paragraphs short (2-3 sentences max) for readability
+- When citing information from web search, naturally include the source links inline
 - When you don't know something specific about JobTread or need current info, use web search
 - When recommending personalized help, include [BOOK_CALL] to render the booking widget
 
 ## WHEN TO SEARCH THE WEB
-- Current JobTread features, updates, or pricing
-- Industry news or trends
-- Specific technical questions about integrations
-- Anything that might have changed recently
+- ALWAYS search when the user asks a question about JobTread features, updates, pricing, or how-tos
+- Industry news, trends, or benchmarks
+- Specific technical questions about integrations (QuickBooks, CompanyCam, EagleView, etc.)
+- Anything that might have changed recently or needs current data
 - When the user asks about competitors or alternatives
+- When the user asks about specific construction industry topics, regulations, or best practices
 
 ## KEY POINTS TO REMEMBER
 - We use n8n for automations, NOT native JobTread automations
@@ -154,16 +160,29 @@ export async function POST(request) {
       messages: messages
     });
 
-    // Extract text content from response
+    // Extract text content and web search citations from response
     let textContent = '';
+    const sources = [];
+    const seenUrls = new Set();
+
     for (const block of response.content) {
       if (block.type === 'text') {
         textContent += block.text;
+        // Extract citations if present (from web search results)
+        if (block.citations) {
+          for (const cite of block.citations) {
+            if (cite.url && !seenUrls.has(cite.url)) {
+              seenUrls.add(cite.url);
+              sources.push({ url: cite.url, title: cite.title || '' });
+            }
+          }
+        }
       }
     }
 
-    return Response.json({ 
+    return Response.json({
       content: textContent,
+      sources,
       usage: response.usage
     });
 

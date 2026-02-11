@@ -187,7 +187,7 @@ export default function Home() {
       const data = await response.json();
 
       if (response.ok && data.content) {
-        setMessages([...newMessages, { role: 'assistant', content: data.content }]);
+        setMessages([...newMessages, { role: 'assistant', content: data.content, sources: data.sources || [] }]);
       } else {
         setMessages([...newMessages, {
           role: 'assistant',
@@ -232,16 +232,92 @@ export default function Home() {
     }));
   };
 
-  // Format message content (basic markdown + booking button)
-  const formatContent = (text) => {
-    // Remove the [BOOK_CALL] marker from displayed text
-    const cleanText = text.replace(/\[BOOK_CALL\]/g, '');
+  // Markdown renderer helpers
+  const escapeHtml = (str) => str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
-    return cleanText
-      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\*(.*?)\*/g, '<em>$1</em>')
-      .replace(/`(.*?)`/g, '<code style="background:rgba(0,0,0,0.3);padding:2px 6px;border-radius:4px;font-size:0.9em;">$1</code>')
-      .replace(/\n/g, '<br/>');
+  const inlineFmt = (str) => str
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer" class="md-link">$1</a>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+    .replace(/`([^`]+)`/g, '<code class="md-inline-code">$1</code>');
+
+  // Full markdown-to-HTML formatter
+  const formatContent = (text) => {
+    const clean = text.replace(/\[BOOK_CALL\]/g, '');
+
+    // Extract code blocks into placeholders
+    const codeBlocks = [];
+    let processed = clean.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) => {
+      const idx = codeBlocks.length;
+      codeBlocks.push({ lang, code: code.trim() });
+      return `\n%%CB_${idx}%%\n`;
+    });
+
+    const lines = processed.split('\n');
+    let html = '';
+    let i = 0;
+
+    while (i < lines.length) {
+      const line = lines[i];
+
+      // Code block placeholder
+      const cbMatch = line.match(/^%%CB_(\d+)%%$/);
+      if (cbMatch) {
+        const cb = codeBlocks[parseInt(cbMatch[1])];
+        html += `<pre class="md-code-block"><code>${escapeHtml(cb.code)}</code></pre>`;
+        i++; continue;
+      }
+
+      // Headings
+      const hMatch = line.match(/^(#{1,4})\s+(.+)$/);
+      if (hMatch) {
+        const lvl = hMatch[1].length;
+        html += `<h${lvl} class="md-h">${inlineFmt(hMatch[2])}</h${lvl}>`;
+        i++; continue;
+      }
+
+      // Horizontal rule
+      if (/^(-{3,}|\*{3,}|_{3,})$/.test(line.trim())) {
+        html += '<hr class="md-hr"/>';
+        i++; continue;
+      }
+
+      // Unordered list
+      if (/^\s*[-*]\s/.test(line)) {
+        html += '<ul class="md-list">';
+        while (i < lines.length && /^\s*[-*]\s/.test(lines[i])) {
+          html += `<li>${inlineFmt(lines[i].replace(/^\s*[-*]\s/, ''))}</li>`;
+          i++;
+        }
+        html += '</ul>';
+        continue;
+      }
+
+      // Ordered list
+      if (/^\s*\d+\.\s/.test(line)) {
+        html += '<ol class="md-list">';
+        while (i < lines.length && /^\s*\d+\.\s/.test(lines[i])) {
+          html += `<li>${inlineFmt(lines[i].replace(/^\s*\d+\.\s/, ''))}</li>`;
+          i++;
+        }
+        html += '</ol>';
+        continue;
+      }
+
+      // Empty line = spacing
+      if (line.trim() === '') { i++; continue; }
+
+      // Regular paragraph — gather consecutive text lines
+      let para = '';
+      while (i < lines.length && lines[i].trim() !== '' && !/^#{1,4}\s/.test(lines[i]) && !/^\s*[-*]\s/.test(lines[i]) && !/^\s*\d+\.\s/.test(lines[i]) && !/^%%CB_/.test(lines[i]) && !/^(-{3,}|\*{3,}|_{3,})$/.test(lines[i].trim())) {
+        if (para) para += '<br/>';
+        para += inlineFmt(lines[i]);
+        i++;
+      }
+      if (para) html += `<p class="md-p">${para}</p>`;
+    }
+
+    return html;
   };
 
   // Check if message contains booking trigger
@@ -522,6 +598,19 @@ export default function Home() {
                   dangerouslySetInnerHTML={{ __html: formatContent(msg.content) }}
                 />
               </div>
+              {/* Sources from web search */}
+              {msg.role === 'assistant' && msg.sources && msg.sources.length > 0 && (
+                <div style={styles.sourcesBox}>
+                  <div style={styles.sourcesLabel}>Sources</div>
+                  <div style={styles.sourcesList}>
+                    {msg.sources.map((s, j) => (
+                      <a key={j} href={s.url} target="_blank" rel="noreferrer" style={styles.sourceChip}>
+                        {s.title || (() => { try { return new URL(s.url).hostname; } catch { return s.url; } })()}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
               {/* Inline Booking Button when AI suggests it */}
               {msg.role === 'assistant' && hasBookingTrigger(msg.content) && (
                 <div style={styles.inlineBooking}>
@@ -623,6 +712,20 @@ export default function Home() {
           0%, 100% { box-shadow: 0 0 20px rgba(93, 71, 250, 0.3); }
           50% { box-shadow: 0 0 30px rgba(93, 71, 250, 0.6), 0 0 60px rgba(93, 71, 250, 0.2); }
         }
+        /* Markdown rendering styles */
+        .md-h { margin: 12px 0 6px; font-weight: 700; line-height: 1.3; }
+        h2.md-h { font-size: 1.25em; color: #a78bfa; }
+        h3.md-h { font-size: 1.1em; color: #a78bfa; }
+        h4.md-h { font-size: 1em; color: #a78bfa; }
+        .md-p { margin: 6px 0; line-height: 1.7; }
+        .md-list { margin: 8px 0; padding-left: 24px; }
+        .md-list li { margin: 4px 0; line-height: 1.6; }
+        .md-link { color: #7a64ff; text-decoration: none; border-bottom: 1px solid rgba(122,100,255,0.4); transition: border-color 0.2s; }
+        .md-link:hover { border-color: #7a64ff; }
+        .md-inline-code { background: rgba(93,71,250,0.2); padding: 2px 7px; border-radius: 5px; font-size: 0.9em; font-family: 'SF Mono', Monaco, Consolas, monospace; }
+        .md-code-block { background: #13132a; border: 1px solid rgba(93,71,250,0.25); border-radius: 12px; padding: 16px; margin: 10px 0; overflow-x: auto; font-size: 0.88em; line-height: 1.6; font-family: 'SF Mono', Monaco, Consolas, monospace; }
+        .md-code-block code { color: #c4b5fd; }
+        .md-hr { border: none; height: 1px; background: rgba(93,71,250,0.25); margin: 16px 0; }
       `}</style>
     </div>
   );
@@ -1053,4 +1156,40 @@ const styles = {
   },
   footerLink: { color: '#7a64ff', textDecoration: 'none', fontWeight: 600 },
   footerSep: { margin: '0 8px', color: '#3a3a5a' },
+  // Sources
+  sourcesBox: {
+    marginLeft: 50,
+    marginTop: 8,
+    padding: '10px 14px',
+    background: 'rgba(93,71,250,0.08)',
+    border: '1px solid rgba(93,71,250,0.2)',
+    borderRadius: 12,
+  },
+  sourcesLabel: {
+    fontSize: 11,
+    fontWeight: 700,
+    color: '#6b6b8a',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 8,
+  },
+  sourcesList: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  sourceChip: {
+    display: 'inline-block',
+    padding: '5px 12px',
+    background: 'rgba(93,71,250,0.15)',
+    border: '1px solid rgba(93,71,250,0.3)',
+    borderRadius: 8,
+    color: '#7a64ff',
+    fontSize: 12,
+    textDecoration: 'none',
+    maxWidth: 220,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
 };
