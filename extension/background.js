@@ -863,6 +863,105 @@ async function testJtConnection() {
 // CHAT HANDLER
 // ═══════════════════════════════════════════════════════════
 
+// Format skill results as readable text so Claude can analyze the actual numbers
+function formatSkillResultsForClaude(results) {
+  var parts = [];
+  for (var i = 0; i < results.length; i++) {
+    var r = results[i];
+    if (r.error || r.type === 'error_notice' || r.type === 'booking' || r.type === 'memory_save') continue;
+    var d = r.data;
+    if (!d) continue;
+
+    if (r.type === 'project_analysis') {
+      parts.push(
+        '## Project: ' + (r.title || 'Unknown') + '\n' +
+        'Status: ' + d.status + '\n' +
+        'Estimated Revenue: $' + (d.estimatedRevenue || 0).toLocaleString() + '\n' +
+        'Estimated Cost: $' + (d.estimatedCost || 0).toLocaleString() + '\n' +
+        'Expected Margin: ' + (d.expectedMargin || 0).toFixed(1) + '%\n' +
+        'Total Invoiced: $' + (d.totalInvoiced || 0).toLocaleString() + '\n' +
+        'Total Collected: $' + (d.totalCollected || 0).toLocaleString() + '\n' +
+        'Outstanding Balance: $' + (d.outstandingBalance || 0).toLocaleString() + '\n' +
+        'Remaining to Invoice: $' + (d.remainingToInvoice || 0).toLocaleString() + '\n' +
+        'Pending Estimates: ' + (d.pendingEstimates || 0) + ' ($' + (d.pendingEstimateValue || 0).toLocaleString() + ')\n' +
+        'Tasks: ' + (d.completedTasks || 0) + '/' + (d.taskCount || 0) + ' (' + (d.taskCompletion || 0) + '% complete)\n' +
+        'Overdue Tasks: ' + (d.overdueTasks || 0) +
+        (d.overdueTaskNames && d.overdueTaskNames.length > 0 ? ' — ' + d.overdueTaskNames.join(', ') : '') +
+        (r.warnings && r.warnings.length > 0 ? '\n⚠️ ' + r.warnings.join('; ') : '')
+      );
+    }
+
+    else if (r.type === 'business_overview') {
+      parts.push(
+        '## Business Overview\n' +
+        'Active Jobs: ' + (d.activeJobs || 0) + '\n' +
+        'Pending Estimates: ' + (d.pendingEstimates || 0) + '\n' +
+        'Pipeline Value: $' + (d.pipelineValue || 0).toLocaleString() + '\n' +
+        'Total AR: $' + (d.totalAR || 0).toLocaleString() + ' (' + (d.unpaidInvoices || 0) + ' unpaid invoices)\n' +
+        'AR Aging:\n' +
+        '  0-30 days: $' + (d.aging.current || 0).toLocaleString() + ' (' + (d.agingCounts.current || 0) + ' invoices)\n' +
+        '  31-60 days: $' + (d.aging.over30 || 0).toLocaleString() + ' (' + (d.agingCounts.over30 || 0) + ' invoices)\n' +
+        '  61-90 days: $' + (d.aging.over60 || 0).toLocaleString() + ' (' + (d.agingCounts.over60 || 0) + ' invoices)\n' +
+        '  90+ days: $' + (d.aging.over90 || 0).toLocaleString() + ' (' + (d.agingCounts.over90 || 0) + ' invoices)' +
+        (r.warnings && r.warnings.length > 0 ? '\n⚠️ ' + r.warnings.join('; ') : '')
+      );
+    }
+
+    else if (r.type === 'cash_flow') {
+      var cfLines = [
+        '## Cash Flow',
+        'Pipeline Value: $' + (d.pipelineValue || 0).toLocaleString() + ' (' + (d.pendingEstimateCount || 0) + ' pending estimates)',
+        'Total AR: $' + (d.totalAR || 0).toLocaleString() + ' (' + (d.unpaidInvoiceCount || 0) + ' unpaid invoices)',
+        'Aging Breakdown:',
+      ];
+      if (d.buckets) {
+        for (var b = 0; b < d.buckets.length; b++) {
+          cfLines.push('  ' + d.buckets[b].label + ': $' + (d.buckets[b].total || 0).toLocaleString() + ' (' + d.buckets[b].count + ')');
+        }
+      }
+      if (d.oldestInvoices && d.oldestInvoices.length > 0) {
+        cfLines.push('Oldest Outstanding:');
+        for (var o = 0; o < d.oldestInvoices.length; o++) {
+          var inv = d.oldestInvoices[o];
+          cfLines.push('  ' + inv.name + ': $' + (inv.owed || 0).toLocaleString() + ' (' + inv.days + ' days)');
+        }
+      }
+      if (r.warnings && r.warnings.length > 0) cfLines.push('⚠️ ' + r.warnings.join('; '));
+      parts.push(cfLines.join('\n'));
+    }
+
+    else if (r.type === 'search_results') {
+      var srLines = ['## ' + (r.title || 'Search Results') + ' (' + (r.count || 0) + ' found)'];
+      if (r.data) {
+        for (var s = 0; s < Math.min(r.data.length, 10); s++) {
+          var item = r.data[s];
+          srLines.push('- ' + (item.name || 'Unknown') + (item.number ? ' #' + item.number : '') + ' [' + (item.status || '?') + ']' + (item.subtitle ? ' — ' + item.subtitle : ''));
+        }
+      }
+      parts.push(srLines.join('\n'));
+    }
+
+    else if (r.type === 'client_history') {
+      var chLines = [
+        '## Client: ' + (d.name || 'Unknown'),
+        'Title: ' + (d.title || 'N/A'),
+        'Account: ' + (d.accountName || 'N/A') + (d.accountType ? ' (' + d.accountType + ')' : ''),
+        'Total Jobs: ' + (d.totalJobs || 0) + ' (Active: ' + (d.activeJobs || 0) + ', Completed: ' + (d.closedJobs || 0) + ')',
+      ];
+      if (d.recentJobs && d.recentJobs.length > 0) {
+        chLines.push('Recent Jobs:');
+        for (var j = 0; j < d.recentJobs.length; j++) {
+          var job = d.recentJobs[j];
+          chLines.push('  - ' + (job.name || 'Unknown') + (job.number ? ' #' + job.number : '') + ' [' + (job.status || '?') + ']');
+        }
+      }
+      if (r.warnings && r.warnings.length > 0) chLines.push('⚠️ ' + r.warnings.join('; '));
+      parts.push(chLines.join('\n'));
+    }
+  }
+  return parts.join('\n\n');
+}
+
 async function handleChat(text) {
   try {
     const settings = await Memory.getSettings();
@@ -912,10 +1011,47 @@ async function handleChat(text) {
       skillResults.push(result);
     }
 
-    // Save assistant message
-    await Memory.saveMessage('assistant', response.text, response.sources, skillResults);
+    // Check if we got data results that Claude should analyze
+    var dataResults = skillResults.filter(function(r) {
+      return !r.error && r.type !== 'error_notice' && r.type !== 'booking' && r.type !== 'memory_save';
+    });
 
-    return { text: response.text, sources: response.sources, skillResults: skillResults, usage: response.usage };
+    var finalText = response.text;
+    var finalSources = response.sources;
+    var totalUsage = response.usage;
+
+    if (dataResults.length > 0) {
+      // Second pass: feed real JT data back to Claude for analysis
+      var dataSummary = formatSkillResultsForClaude(skillResults);
+      console.log('[BetterBoss] Making analysis call with JT data (' + dataSummary.length + ' chars)');
+
+      var analysisMessages = apiMessages.concat([
+        { role: 'assistant', content: response.text },
+        { role: 'user', content: 'Here is the live data from JobTread:\n\n' + dataSummary + '\n\nNow analyze this data. Reference the ACTUAL numbers above. Give specific, actionable insights and flag anything that needs attention. Do NOT include any [SKILL:] tags — the data is already retrieved.' }
+      ]);
+
+      try {
+        var analysis = await callClaude(settings.claudeApiKey, analysisMessages, memoryContext, pageContext);
+        finalText = analysis.text;
+        finalSources = response.sources.concat(analysis.sources || []);
+        // Combine usage from both calls
+        if (analysis.usage && totalUsage) {
+          totalUsage = {
+            input_tokens: (totalUsage.input_tokens || 0) + (analysis.usage.input_tokens || 0),
+            output_tokens: (totalUsage.output_tokens || 0) + (analysis.usage.output_tokens || 0),
+          };
+        }
+        console.log('[BetterBoss] Analysis complete:', finalText.length, 'chars');
+      } catch (analysisErr) {
+        console.warn('[BetterBoss] Analysis call failed, using first response:', analysisErr.message);
+        // Fall back to first response text
+      }
+    }
+
+    // Save assistant message (analysis text if two-pass, or first response if no skills)
+    await Memory.saveMessage('assistant', finalText, finalSources, skillResults);
+
+    return { text: finalText, sources: finalSources, skillResults: skillResults, usage: totalUsage };
   } catch (err) {
     console.error('[BetterBoss ' + BG_VERSION + '] handleChat error:', err);
     return { error: 'Chat error: ' + (err.message || String(err)) };
