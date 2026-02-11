@@ -274,6 +274,7 @@ async function claudeFetch(apiKey, body) {
 const JT_API = 'https://api.jobtread.com/graphql';
 
 async function jtQuery(token, gql, variables) {
+  console.log('[BetterBoss] jtQuery → ' + JT_API, 'query:', gql.slice(0, 80) + '...');
   var res;
   try {
     res = await fetch(JT_API, {
@@ -282,21 +283,36 @@ async function jtQuery(token, gql, variables) {
       body: JSON.stringify({ query: gql, variables: variables || {} }),
     });
   } catch (networkErr) {
-    throw new Error('Could not reach JobTread API: ' + networkErr.message);
+    console.error('[BetterBoss] JT network error:', networkErr);
+    throw new Error('Could not reach JobTread API (' + JT_API + '). Network error: ' + networkErr.message);
   }
 
   var text = await res.text();
-  console.log('[BetterBoss] JobTread API response:', res.status, text.slice(0, 200));
+  console.log('[BetterBoss] JT response:', res.status, 'length:', text.length, 'body:', text.slice(0, 300));
+
+  if (res.status === 401 || res.status === 403) {
+    throw new Error('JobTread API authentication failed (HTTP ' + res.status + '). Check your API token in Settings → JobTread API Token.');
+  }
+
+  if (res.status === 404) {
+    throw new Error('JobTread API endpoint not found (HTTP 404). URL: ' + JT_API);
+  }
 
   var json;
   try { json = JSON.parse(text); } catch (e) {
-    if (res.status === 401 || res.status === 403) {
-      throw new Error('JobTread API authentication failed (HTTP ' + res.status + '). Check your API token in Settings.');
-    }
-    throw new Error('JobTread API returned HTTP ' + res.status + '. Response: ' + text.slice(0, 100));
+    throw new Error('JobTread API returned non-JSON (HTTP ' + res.status + '). This usually means the API URL is wrong. Response: ' + text.slice(0, 150));
   }
-  if (!res.ok) throw new Error('JobTread API error ' + res.status + ': ' + (json.message || JSON.stringify(json).slice(0, 200)));
-  if (json.errors) throw new Error('JobTread query error: ' + json.errors.map(function(e) { return e.message; }).join(', '));
+
+  if (!res.ok) {
+    throw new Error('JobTread API error ' + res.status + ': ' + (json.message || json.error || JSON.stringify(json).slice(0, 200)));
+  }
+
+  if (json.errors) {
+    var errMsgs = json.errors.map(function(e) { return e.message; }).join(', ');
+    console.error('[BetterBoss] JT GraphQL errors:', errMsgs);
+    throw new Error('JobTread query error: ' + errMsgs);
+  }
+
   return json.data;
 }
 
@@ -437,6 +453,9 @@ async function handleMessage(message) {
     case 'SAVE_SETTINGS':
       return { settings: await Memory.saveSettings(message.settings) };
 
+    case 'TEST_JT_CONNECTION':
+      return testJtConnection();
+
     case 'PAGE_CONTEXT_UPDATE':
       currentPageContext = formatPageContext(message.context);
       await Memory.setPageContext(currentPageContext);
@@ -453,6 +472,78 @@ async function handleMessage(message) {
     default:
       return { error: 'Unknown action: ' + message.action };
   }
+}
+
+// ═══════════════════════════════════════════════════════════
+// TEST CONNECTION
+// ═══════════════════════════════════════════════════════════
+
+async function testJtConnection() {
+  const settings = await Memory.getSettings();
+  if (!settings.jobtreadToken) {
+    return { error: 'No JobTread API token saved. Paste your token above and click Save first.' };
+  }
+
+  const token = settings.jobtreadToken;
+  console.log('[BetterBoss] Testing JT connection, token length:', token.length, 'first 8 chars:', token.slice(0, 8) + '...');
+
+  // Try a simple introspection-like query to test auth
+  var res;
+  try {
+    res = await fetch(JT_API, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + token,
+      },
+      body: JSON.stringify({ query: '{ __typename }' }),
+    });
+  } catch (networkErr) {
+    console.error('[BetterBoss] Test connection network error:', networkErr);
+    return { error: 'Network error reaching ' + JT_API + ': ' + networkErr.message };
+  }
+
+  var text = await res.text();
+  console.log('[BetterBoss] Test connection response:', res.status, text.slice(0, 500));
+
+  if (res.status === 401 || res.status === 403) {
+    return { error: 'Authentication failed (HTTP ' + res.status + '). Your token may be invalid or expired. Double-check it in JobTread → Settings → API.' };
+  }
+
+  if (res.status === 404) {
+    return { error: 'Endpoint not found (HTTP 404). The API URL may be wrong: ' + JT_API };
+  }
+
+  if (!res.ok) {
+    return { error: 'HTTP ' + res.status + ': ' + text.slice(0, 200) };
+  }
+
+  var json;
+  try {
+    json = JSON.parse(text);
+  } catch (e) {
+    return { error: 'API returned non-JSON. Response: ' + text.slice(0, 200) };
+  }
+
+  if (json.errors && json.errors.length > 0) {
+    // Errors on __typename is okay — it means auth worked but query is restricted
+    // Try a real query instead
+    console.log('[BetterBoss] __typename had errors, trying real query...');
+    try {
+      var data = await jtQuery(token, 'query { jobs(first: 1) { edges { node { id } } } }');
+      return { info: 'Token is valid! Found jobs data.' };
+    } catch (realErr) {
+      // If this also fails, check if it's an auth error vs query error
+      if (realErr.message.includes('authentication') || realErr.message.includes('401') || realErr.message.includes('403')) {
+        return { error: realErr.message };
+      }
+      // Query structure error means auth worked but query shape is wrong
+      return { error: 'Token may be valid but API queries are failing: ' + realErr.message + '. This could mean the JobTread API schema has changed.' };
+    }
+  }
+
+  // Success
+  return { info: 'Token is valid! API connection working.' };
 }
 
 // ═══════════════════════════════════════════════════════════
