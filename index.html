@@ -1,0 +1,1419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Complete Contracting - Edge to JobTread Budget Transformer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --cc-blue: #1e3a5f; --cc-blue-light: #2d5a8a; --cc-gold: #c9a227; --cc-gold-light: #e8c547;
+            --bg-dark: #0f1419; --bg-card: #1a2332; --text-primary: #f0f4f8; --text-secondary: #8899a6;
+            --success: #00c853; --warning: #ffc107; --error: #ff5252; --border: rgba(255,255,255,0.08);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'DM Sans', sans-serif; background: var(--bg-dark); color: var(--text-primary); min-height: 100vh; line-height: 1.6; }
+        .app-container { max-width: 1000px; margin: 0 auto; padding: 40px 24px; }
+        .header { text-align: center; margin-bottom: 48px; }
+        .logo-badge { display: inline-flex; align-items: center; gap: 12px; background: linear-gradient(135deg, var(--cc-blue) 0%, var(--cc-blue-light) 100%); padding: 12px 24px; border-radius: 50px; margin-bottom: 24px; border: 2px solid var(--cc-gold); }
+        .logo-badge span { font-weight: 700; font-size: 1.1em; color: var(--cc-gold); }
+        .header h1 { font-size: 2.5em; font-weight: 700; margin-bottom: 12px; background: linear-gradient(135deg, var(--text-primary) 0%, var(--cc-gold) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .header .subtitle { color: var(--text-secondary); font-size: 1.15em; }
+        .card { background: var(--bg-card); border-radius: 16px; border: 1px solid var(--border); padding: 32px; margin-bottom: 24px; }
+        .card-header { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
+        .card-header .icon { width: 48px; height: 48px; background: linear-gradient(135deg, var(--cc-blue) 0%, var(--cc-blue-light) 100%); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: var(--cc-gold); font-size: 1.5em; }
+        .card-header h2 { font-size: 1.4em; font-weight: 600; }
+        .instructions { background: rgba(30, 58, 95, 0.3); border-left: 4px solid var(--cc-gold); border-radius: 0 12px 12px 0; padding: 20px 24px; margin-bottom: 32px; }
+        .instructions h3 { color: var(--cc-gold); font-size: 1.1em; margin-bottom: 12px; }
+        .instructions ol { color: var(--text-secondary); padding-left: 20px; }
+        .instructions li { margin: 8px 0; }
+        .instructions strong { color: var(--text-primary); }
+        .upload-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+        @media (max-width: 768px) { .upload-grid { grid-template-columns: 1fr; } }
+        .upload-box { border: 2px dashed rgba(201, 162, 39, 0.4); border-radius: 12px; padding: 24px 16px; text-align: center; cursor: pointer; transition: all 0.3s ease; background: rgba(30, 58, 95, 0.1); position: relative; }
+        .upload-box:hover { border-color: var(--cc-gold); background: rgba(30, 58, 95, 0.2); }
+        .upload-box.loaded { border-color: var(--success); border-style: solid; background: rgba(0, 200, 83, 0.1); }
+        .upload-box input[type="file"] { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+        .upload-box .icon { font-size: 2em; margin-bottom: 8px; }
+        .upload-box h4 { font-size: 0.95em; margin-bottom: 4px; }
+        .upload-box p { font-size: 0.8em; color: var(--text-secondary); }
+        .upload-box .status { margin-top: 8px; font-size: 0.85em; color: var(--success); display: none; }
+        .upload-box.loaded .status { display: block; }
+        .upload-box .required { color: var(--cc-gold); font-weight: bold; }
+        .price-input { background: rgba(201, 162, 39, 0.15); border: 2px solid var(--cc-gold); border-radius: 12px; padding: 24px; margin-bottom: 24px; }
+        .price-input label { display: block; margin-bottom: 8px; color: var(--cc-gold); font-weight: 700; font-size: 1.1em; }
+        .price-input p { font-size: 0.9em; color: var(--text-secondary); margin-bottom: 12px; }
+        .price-input .highlight { background: rgba(201, 162, 39, 0.3); padding: 2px 6px; border-radius: 4px; color: var(--cc-gold); font-weight: 600; }
+        .price-input input { width: 100%; padding: 16px 20px; font-size: 1.4em; font-family: 'JetBrains Mono', monospace; border: 2px solid var(--border); border-radius: 8px; background: var(--bg-dark); color: var(--text-primary); }
+        .price-input input:focus { outline: none; border-color: var(--cc-gold); }
+        .price-input .example { margin-top: 8px; font-size: 0.85em; color: var(--text-secondary); }
+        .btn-transform { width: 100%; padding: 20px 32px; font-size: 1.15em; font-weight: 600; font-family: inherit; border: none; border-radius: 12px; cursor: pointer; transition: all 0.3s ease; display: flex; align-items: center; justify-content: center; gap: 12px; background: linear-gradient(135deg, var(--cc-gold) 0%, var(--cc-gold-light) 100%); color: var(--bg-dark); }
+        .btn-transform:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(201, 162, 39, 0.4); }
+        .btn-transform:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .results { display: none; animation: slideUp 0.5s ease; }
+        .results.show { display: block; }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .job-banner { background: linear-gradient(135deg, var(--cc-blue) 0%, var(--cc-blue-light) 100%); border-radius: 16px; padding: 24px 32px; margin-bottom: 24px; border: 1px solid var(--cc-gold); }
+        .job-banner h3 { font-size: 1.5em; margin-bottom: 8px; color: var(--cc-gold); }
+        .job-stats { display: flex; gap: 32px; flex-wrap: wrap; }
+        .job-stat { display: flex; flex-direction: column; }
+        .job-stat .label { font-size: 0.85em; color: rgba(255,255,255,0.7); text-transform: uppercase; }
+        .job-stat .value { font-size: 1.4em; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+        .validation-box { background: rgba(0, 200, 83, 0.1); border: 2px solid var(--success); border-radius: 12px; padding: 20px; margin-bottom: 24px; }
+        .validation-box.error { background: rgba(255, 82, 82, 0.1); border-color: var(--error); }
+        .validation-box h4 { color: var(--success); margin-bottom: 12px; font-size: 1.1em; }
+        .validation-box.error h4 { color: var(--error); }
+        .validation-row { display: flex; justify-content: space-between; padding: 8px 0; font-family: 'JetBrains Mono', monospace; }
+        .validation-row.highlight { background: rgba(201, 162, 39, 0.1); margin: 0 -12px; padding: 8px 12px; border-radius: 6px; }
+        .summary-section { margin-bottom: 32px; }
+        .summary-section h3 { font-size: 1.1em; color: var(--cc-gold); margin-bottom: 16px; }
+        .summary-table { width: 100%; border-collapse: collapse; font-size: 0.95em; }
+        .summary-table th { text-align: left; padding: 12px 16px; background: rgba(30, 58, 95, 0.5); color: var(--text-secondary); font-weight: 500; text-transform: uppercase; font-size: 0.8em; }
+        .summary-table th:nth-child(2), .summary-table th:nth-child(3) { text-align: right; }
+        .summary-table td { padding: 12px 16px; border-bottom: 1px solid var(--border); }
+        .summary-table td:nth-child(2) { text-align: right; font-family: 'JetBrains Mono', monospace; font-weight: 500; }
+        .summary-table td:nth-child(3) { text-align: right; color: var(--text-secondary); }
+        .summary-table .total-row td { background: rgba(201, 162, 39, 0.1); font-weight: 700; color: var(--cc-gold); }
+        .btn-download { width: 100%; padding: 20px 32px; font-size: 1.15em; font-weight: 600; font-family: inherit; border: none; border-radius: 12px; cursor: pointer; transition: all 0.3s ease; display: flex; align-items: center; justify-content: center; gap: 12px; background: linear-gradient(135deg, var(--success) 0%, #00e676 100%); color: var(--bg-dark); }
+        .btn-download:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0, 200, 83, 0.4); }
+        .error-message { display: none; background: rgba(255, 82, 82, 0.15); border: 1px solid rgba(255, 82, 82, 0.3); border-radius: 12px; padding: 16px 24px; margin-top: 24px; color: var(--error); }
+        .error-message.show { display: block; }
+        .footer { text-align: center; margin-top: 48px; padding-top: 24px; border-top: 1px solid var(--border); color: var(--text-secondary); font-size: 0.9em; }
+        .loading { display: none; flex-direction: column; align-items: center; gap: 16px; padding: 48px; }
+        .loading.show { display: flex; }
+        .spinner { width: 48px; height: 48px; border: 4px solid var(--border); border-top-color: var(--cc-gold); border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .debug-panel { background: rgba(30,58,95,0.2); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-top: 16px; }
+        .debug-panel h4 { color: var(--cc-gold); margin-bottom: 12px; cursor: pointer; }
+        .debug-panel .content { display: none; max-height: 400px; overflow-y: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.8em; }
+        .debug-panel.open .content { display: block; }
+        .debug-item { padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.03); }
+        .debug-item .warn { color: var(--warning); }
+        .debug-item .ok { color: var(--success); }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <header class="header">
+            <div class="logo-badge"><span>COMPLETE CONTRACTING</span></div>
+            <h1>Edge to JobTread Transformer</h1>
+            <p class="subtitle">Transform your Estimating Edge reports into JobTread budget imports (v4.0)</p>
+        </header>
+
+        <div class="instructions">
+            <h3>How to Use</h3>
+            <ol>
+                <li>Export all <strong>3 reports</strong> from Edge Estimator for your bid</li>
+                <li>Upload each file below</li>
+                <li>Enter the <strong>SELLING PRICE</strong> from your Recap Report (page 2)</li>
+                <li>Click <strong>"Transform to JobTread Budget"</strong></li>
+                <li>Verify the totals match, then download your CSV!</li>
+            </ol>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <div class="icon">+</div>
+                <h2>Upload Edge Reports</h2>
+            </div>
+
+            <div class="upload-grid">
+                <div class="upload-box" id="consolidatedBox">
+                    <input type="file" id="consolidatedFile" accept=".xls,.xlsx">
+                    <div class="icon">[ ]</div>
+                    <h4>Consolidated Report <span class="required">*</span></h4>
+                    <p>.xls or .xlsx</p>
+                    <div class="status">Loaded</div>
+                </div>
+                <div class="upload-box" id="sovBox">
+                    <input type="file" id="sovFile" accept=".xls,.xlsx">
+                    <div class="icon">[ ]</div>
+                    <h4>SOV Report <span class="required">*</span></h4>
+                    <p>.xls or .xlsx</p>
+                    <div class="status">Loaded</div>
+                </div>
+                <div class="upload-box" id="recapBox">
+                    <input type="file" id="recapFile" accept=".pdf">
+                    <div class="icon">[ ]</div>
+                    <h4>Recap Report <span class="required">*</span></h4>
+                    <p>.pdf</p>
+                    <div class="status">Loaded</div>
+                </div>
+            </div>
+
+            <div class="price-input">
+                <label>SELLING PRICE (from Recap Report)</label>
+                <p>Open your Recap PDF and find the <span class="highlight">SELLING PRICE</span> on page 2. This is your contract amount to the customer.</p>
+                <input type="text" id="sellingPrice" placeholder="e.g. 37415.84">
+                <p class="example">Example: For Chevron Lucedale, enter <strong>37415.84</strong></p>
+            </div>
+
+            <button class="btn-transform" id="transformBtn" disabled>Transform to JobTread Budget</button>
+            <div class="error-message" id="errorMessage"></div>
+            <div class="loading" id="loading"><div class="spinner"></div><p>Transforming...</p></div>
+        </div>
+
+        <div class="results" id="results">
+            <div class="job-banner">
+                <h3 id="jobName">Job Name</h3>
+                <div class="job-stats">
+                    <div class="job-stat"><span class="label">Line Items</span><span class="value" id="lineItemCount">0</span></div>
+                    <div class="job-stat"><span class="label">Cost Groups</span><span class="value" id="costGroupCount">0</span></div>
+                    <div class="job-stat"><span class="label">Markup</span><span class="value" id="markupPercent">0%</span></div>
+                    <div class="job-stat"><span class="label">Job Type</span><span class="value" id="jobTypeDisplay">-</span></div>
+                </div>
+            </div>
+
+            <div class="validation-box" id="validationBox">
+                <h4 id="validationTitle">TOTALS MATCH</h4>
+                <div class="validation-row">
+                    <span>Extended Cost (Net Cost):</span>
+                    <span id="totalCost">$0.00</span>
+                </div>
+                <div class="validation-row highlight">
+                    <span>Extended Price (Selling Price):</span>
+                    <span id="totalPrice">$0.00</span>
+                </div>
+                <div class="validation-row">
+                    <span>Recap Selling Price:</span>
+                    <span id="recapPrice">$0.00</span>
+                </div>
+                <div class="validation-row">
+                    <span>Difference:</span>
+                    <span id="priceDiff">$0.00</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="summary-section">
+                    <h3>Budget by Cost Group</h3>
+                    <table class="summary-table"><thead><tr><th>Cost Group</th><th>Amount</th><th>%</th></tr></thead><tbody id="groupSummary"></tbody></table>
+                </div>
+                <div class="summary-section">
+                    <h3>Budget by Cost Type</h3>
+                    <table class="summary-table"><thead><tr><th>Cost Type</th><th>Amount</th><th>%</th></tr></thead><tbody id="typeSummary"></tbody></table>
+                </div>
+
+                <div class="debug-panel" id="debugPanel">
+                    <h4 onclick="this.parentElement.classList.toggle('open')">Mapping Details (click to expand)</h4>
+                    <div class="content" id="debugContent"></div>
+                </div>
+
+                <button class="btn-download" id="downloadBtn" style="margin-top:24px">Download JobTread Budget CSV</button>
+            </div>
+        </div>
+        <footer class="footer"><p>Built for Complete Contracting by Better Boss - Version 4.0</p></footer>
+    </div>
+
+    <script>
+    /* ================================================================
+       COMPLETE CONTRACTING - EDGE TO JOBTREAD BUDGET TRANSFORMER v4.0
+       ================================================================
+       CHANGELOG v4.0:
+       - Rebuilt CC_CODES to match actual JT catalog (catalog-2026-02-10.csv)
+       - Cost Groups now use REAL catalog parent codes, not phantom headers
+       - Added missing catalog codes: 0740, 0830, 1330, 1520, 1530, 1720,
+         1810, 1910, 1920, 2020, 2250, 2310, 2420, 2750, 2810, 3310
+       - Removed phantom codes not in catalog: 0100, 0200, 0300, 0600, 0700,
+         0800, 1000, 1100, 2200, 2700, 2900, 3300
+       - Fixed Cost Type: "Materials" -> "Material" to match JT catalog
+       - Added Supervision -> Labor mapping
+       - Added Safety Setup -> Labor mapping
+       - Fixed "TORCH 2 PLY" subcontract routing for mod-bit
+       - Fixed Caulk/Sealant routing with better Edge code context
+       - Added Alsan/flashing cement routing for mod-bit jobs
+       - Added debug panel showing all mapping decisions
+       ================================================================ */
+
+    // ========================
+    // COST CODE MASTER TABLE
+    // ========================
+    // Every code here EXISTS in the JT catalog (catalog-2026-02-10.csv)
+    // Parent = null means it IS a top-level group (used as Cost Group header)
+    // Parent = "XXXX" means it belongs under that group
+    //
+    // COST GROUP LOGIC:
+    //   If a code has parent=null, its Cost Group = "{code} - {name}"
+    //   If a code has a parent, its Cost Group = "{parent} - {parentName}"
+    //   This ensures every Cost Group in the CSV output maps to a real JT code.
+
+    const CC_CODES = {
+        // GENERAL CONDITIONS (0180 is a real catalog code, used as group header)
+        "0180": { name: "Permits/Inspections",     parent: null,   group: "GENERAL CONDITIONS" },
+
+        // INSULATION (0400 is a real catalog code used as group header)
+        "0400": { name: "INSULATION",              parent: null,   group: "INSULATION" },
+        "0410": { name: "Base ISO",                parent: "0400", group: "INSULATION" },
+        "0420": { name: "Tapered ISO",             parent: "0400", group: "INSULATION" },
+        "0510": { name: "Vapor Retarder",          parent: "0400", group: "INSULATION" },
+        "0530": { name: "Slip Sheet",              parent: "0400", group: "INSULATION" },
+
+        // TPO MEMBRANE (no parent code in catalog - use 0610 as anchor)
+        "0610": { name: "TPO Field Sheet",         parent: null,   group: "TPO MEMBRANE" },
+        "0620": { name: "TPO Flashing Sheet",      parent: null,   group: "TPO MEMBRANE" },
+        "0630": { name: "TPO Adhesive",            parent: null,   group: "TPO MEMBRANE" },
+        "0640": { name: "TPO Fasteners/Plates",    parent: null,   group: "TPO MEMBRANE" },
+        "0650": { name: "TPO Accessories",         parent: null,   group: "TPO MEMBRANE" },
+
+        // PVC MEMBRANE
+        "0710": { name: "PVC Field Sheet",         parent: null,   group: "PVC MEMBRANE" },
+        "0720": { name: "PVC Flashing Sheet",      parent: null,   group: "PVC MEMBRANE" },
+        "0730": { name: "PVC Adhesive",            parent: null,   group: "PVC MEMBRANE" },
+        "0740": { name: "PVC Fasteners/Plates",    parent: null,   group: "PVC MEMBRANE" },
+        "0750": { name: "PVC Prefab Accessories",  parent: null,   group: "PVC MEMBRANE" },
+
+        // MODIFIED BITUMEN
+        "0810": { name: "Mod Bit Base Sheet",      parent: null,   group: "MODIFIED BITUMEN" },
+        "0820": { name: "Mod Bit Cap Sheet",       parent: null,   group: "MODIFIED BITUMEN" },
+        "0830": { name: "Mod Bit Cold Adhesive",   parent: null,   group: "MODIFIED BITUMEN" },
+        "0850": { name: "Mod Bit Accessories",     parent: null,   group: "MODIFIED BITUMEN" },
+
+        // ROOFING - GENERAL (catch-all for items that span systems)
+        "0900": { name: "ROOFING - GENERAL",       parent: null,   group: "ROOFING - GENERAL" },
+
+        // METAL ROOFING
+        "1030": { name: "Metal Roof Fasteners",    parent: null,   group: "METAL ROOFING" },
+        "1040": { name: "Metal Roof Accessories",  parent: null,   group: "METAL ROOFING" },
+
+        // STEEP SLOPE
+        "1120": { name: "Underlayment",            parent: null,   group: "STEEP SLOPE" },
+        "1140": { name: "Ridge/Hip/Starter",       parent: null,   group: "STEEP SLOPE" },
+
+        // COATINGS
+        "1210": { name: "Silicone Coating",        parent: null,   group: "COATINGS" },
+        "1220": { name: "Acrylic Coating",         parent: null,   group: "COATINGS" },
+
+        // PENETRATIONS
+        "1310": { name: "Pipe Boots",              parent: null,   group: "PENETRATIONS" },
+        "1320": { name: "Pitch Pans/Pourable Sealer", parent: null, group: "PENETRATIONS" },
+        "1330": { name: "Prefab Stack Flashings",  parent: null,   group: "PENETRATIONS" },
+
+        // EQUIPMENT CURBS
+        "1410": { name: "RTU/HVAC Curbs",          parent: null,   group: "EQUIPMENT CURBS" },
+
+        // EDGE METAL
+        "1510": { name: "Drip Edge",               parent: null,   group: "EDGE METAL" },
+        "1520": { name: "Gravel Stop",             parent: null,   group: "EDGE METAL" },
+        "1530": { name: "Fascia Metal",            parent: null,   group: "EDGE METAL" },
+        "1540": { name: "T-Edge/Compression Term", parent: null,   group: "EDGE METAL" },
+
+        // COPING & PARAPET
+        "1610": { name: "Coping Cap",              parent: null,   group: "COPING & PARAPET" },
+
+        // COUNTER FLASHING
+        "1710": { name: "Surface Mount CF",        parent: null,   group: "COUNTER FLASHING" },
+        "1720": { name: "Reglet CF",               parent: null,   group: "COUNTER FLASHING" },
+
+        // WALL & STEP FLASHING
+        "1810": { name: "Step Flashing",           parent: null,   group: "WALL & STEP FLASHING" },
+        "1820": { name: "Headwall Flashing",       parent: null,   group: "WALL & STEP FLASHING" },
+
+        // VALLEY & TRANSITION
+        "1910": { name: "Valley Metal",            parent: null,   group: "VALLEY & TRANSITION" },
+        "1920": { name: "Transition Flashing",     parent: null,   group: "VALLEY & TRANSITION" },
+
+        // CUSTOM SHEET METAL
+        "2010": { name: "Custom Brake Metal",      parent: null,   group: "CUSTOM SHEET METAL" },
+        "2020": { name: "Specialty Fabrication",    parent: null,   group: "CUSTOM SHEET METAL" },
+
+        // DRAINS & SCUPPERS
+        "2110": { name: "Primary Roof Drain",      parent: null,   group: "DRAINS & SCUPPERS" },
+        "2140": { name: "Primary Scupper",         parent: null,   group: "DRAINS & SCUPPERS" },
+
+        // ROOF HATCHES & VENTS
+        "2250": { name: "Relief Vent",             parent: null,   group: "ROOF HATCHES & VENTS" },
+
+        // SAFETY & ACCESS
+        "2310": { name: "Roof Anchor/Tie-Off",     parent: null,   group: "SAFETY & ACCESS" },
+        "2340": { name: "Walkway Pads",            parent: null,   group: "SAFETY & ACCESS" },
+
+        // GUTTERS & DOWNSPOUTS
+        "2410": { name: "Box Gutter",              parent: null,   group: "GUTTERS & DOWNSPOUTS" },
+        "2420": { name: "K-Style Gutter",          parent: null,   group: "GUTTERS & DOWNSPOUTS" },
+        "2430": { name: "Downspouts",              parent: null,   group: "GUTTERS & DOWNSPOUTS" },
+        "2440": { name: "Gutter Accessories",      parent: null,   group: "GUTTERS & DOWNSPOUTS" },
+
+        // SEALANTS
+        "2500": { name: "SEALANTS",                parent: null,   group: "SEALANTS" },
+        "2520": { name: "Silicone Sealant",        parent: null,   group: "SEALANTS" },
+        "2530": { name: "Butyl/Mastic",            parent: null,   group: "SEALANTS" },
+        "2550": { name: "Primers/Cleaners",        parent: null,   group: "SEALANTS" },
+
+        // EQUIPMENT
+        "2750": { name: "Welder Rental",           parent: null,   group: "EQUIPMENT" },
+        "2810": { name: "Bid Bond",                parent: null,   group: "BONDS & WARRANTY" },
+
+        // SMALL TOOLS & MISC
+        "3310": { name: "Small Tools/Consumables", parent: null,   group: "SMALL TOOLS & MISC" },
+    };
+
+    // ========================
+    // COST GROUP BUILDER
+    // ========================
+    function getCostGroup(ccCode) {
+        const info = CC_CODES[ccCode];
+        if (!info) return "UNCATEGORIZED";
+        return info.group;
+    }
+
+    // ========================
+    // UNIT MAP
+    // ========================
+    const UNIT_MAP = {
+        'EA':'Each','SF':'Square Feet','SQ':'Squares','LF':'Linear Feet',
+        'GAL':'Gallons','ROLL':'Rolls','ROLLS':'Rolls','PC':'Pieces','PCS':'Pieces',
+        'BOX':'Boxes','PAIL':'Pails','TUBE':'Tubes','BAG':'Bags','BDL':'Bundles',
+        'DAY':'Days','SHEET':'Sheets','SHEETS':'Sheets','WK':'Weeks','MO':'Months',
+        'HR':'Hours','HOURS':'Hours','LS':'Lump Sum','SET':'Sets',
+        '5 GAL':'Pails','1 GAL':'Gallons','20LB':'Each','BUNDLE':'Bundles'
+    };
+    function expandUnit(u) {
+        u = (u || 'EA').toString().toUpperCase().trim();
+        return UNIT_MAP[u] || u || 'Each';
+    }
+
+    // ========================
+    // JOB TYPE DETECTION
+    // ========================
+    let detectedJobType = 'unknown';
+
+    function detectJobType(items) {
+        var scores = { tpo: 0, pvc: 0, modbit: 0, metal: 0, shingle: 0 };
+        for (var idx = 0; idx < items.length; idx++) {
+            var item = items[idx];
+            var n = item.itemName.toLowerCase();
+            var ec = item.edgeCode.toLowerCase();
+
+            if (n.includes('tpo ') || n.includes(' tpo') || ec.startsWith('07-5')) {
+                if (n.includes('membrane') || n.includes('mil ') || n.includes('60 mil') || n.includes('80 mil')) scores.tpo += 10;
+                else scores.tpo += 3;
+            }
+            if (n.includes('pvc ') || n.includes(' pvc') || n.includes('duro-last') || n.includes('durolast') || n.includes('versiflex') || ec.startsWith('07-6')) {
+                if (n.includes('membrane') || n.includes('mil ')) scores.pvc += 10;
+                else scores.pvc += 3;
+            }
+            if (n.includes('mod bit') || n.includes('modified') || n.includes('sbs ') || n.includes('torch') || n.includes('dynaweld') || n.includes('dynalastic') || n.includes('hot mop') || n.includes('kettle') || ec.startsWith('07-4')) {
+                scores.modbit += 5;
+            }
+            if (n.includes('standing seam') || n.includes('metal panel') || n.includes('pbr') || n.includes('r-panel') || n.includes('mbci') || n.includes('lockseam') || ec.startsWith('07-3')) {
+                scores.metal += 5;
+            }
+            if (n.includes('shingle') || n.includes('landmark') || n.includes('certainteed') || n.includes('gaf ') || n.includes('owens corning') || n.includes('iko ') || n.includes('shadowridge') || n.includes('starter roll') || ec.startsWith('07-1')) {
+                scores.shingle += 5;
+            }
+        }
+        var maxScore = Math.max(scores.tpo, scores.pvc, scores.modbit, scores.metal, scores.shingle);
+        if (maxScore === 0) return 'unknown';
+        var types = [];
+        if (scores.tpo === maxScore) types.push('tpo');
+        if (scores.pvc === maxScore) types.push('pvc');
+        if (scores.modbit === maxScore) types.push('modbit');
+        if (scores.metal === maxScore) types.push('metal');
+        if (scores.shingle === maxScore) types.push('shingle');
+        if (types.length > 1) return 'mixed';
+        return types[0];
+    }
+
+    // ========================
+    // MASTER MAPPING FUNCTION
+    // ========================
+    // Returns [ccCode, ccName, costType]
+    // costType uses JT catalog values: "Material", "Labor", "Equipment", "Subcontractor", "Other"
+
+    function getCCMapping(n, edgeCode, jobType) {
+        edgeCode = edgeCode || '';
+        jobType = jobType || 'unknown';
+        var orig = n;
+        n = n.toLowerCase();
+        var isInstall = n.includes('install');
+        var isFabricate = n.includes('fabricat');
+        var ec = edgeCode.toLowerCase();
+
+        // ---- Edge User Code based routing (highest priority) ----
+
+        if (ec.includes('07-100-200')) {
+            return ['0900', 'ROOFING - GENERAL', 'Labor'];
+        }
+        if (ec.includes('07-100-230')) {
+            if (n.includes('mobilize') || n.includes('demobilize'))
+                return ['0900', 'ROOFING - GENERAL', 'Labor'];
+            if (n.includes('supervis'))
+                return ['0900', 'ROOFING - GENERAL', 'Labor'];
+            return ['0900', 'ROOFING - GENERAL', 'Labor'];
+        }
+        if (ec.includes('07-100-300')) {
+            if (n.includes('coping')) return ['1610', 'Coping Cap', 'Labor'];
+            if (n.includes('counter') || n.includes('cf ')) return ['1710', 'Surface Mount CF', 'Labor'];
+            if (n.includes('cleat')) return ['2010', 'Custom Brake Metal', 'Labor'];
+            if (n.includes('headwall')) return ['1820', 'Headwall Flashing', 'Labor'];
+            if (n.includes('drip') || n.includes('edge metal') || n.includes('eave') || n.includes('rake')) return ['1510', 'Drip Edge', 'Labor'];
+            if (n.includes('gutter')) return ['2410', 'Box Gutter', 'Labor'];
+            if (n.includes('downspout')) return ['2430', 'Downspouts', 'Labor'];
+            if (n.includes('scupper')) return ['2140', 'Primary Scupper', 'Labor'];
+            return ['2010', 'Custom Brake Metal', 'Labor'];
+        }
+        if (ec.includes('07-100-320')) {
+            if (n.includes('coping')) return ['1610', 'Coping Cap', 'Labor'];
+            if (n.includes('counter') || n.includes('cf ')) return ['1710', 'Surface Mount CF', 'Labor'];
+            if (n.includes('cleat')) return ['2010', 'Custom Brake Metal', 'Labor'];
+            if (n.includes('headwall')) return ['1820', 'Headwall Flashing', 'Labor'];
+            if (n.includes('eyebrow')) return ['2010', 'Custom Brake Metal', 'Labor'];
+            if (n.includes('break') || n.includes('brake')) return ['2010', 'Custom Brake Metal', 'Labor'];
+            return ['2010', 'Custom Brake Metal', 'Labor'];
+        }
+        if (ec.includes('07-100-900') && !ec.includes('07-100-901') && !ec.includes('07-100-902')) {
+            if (n.includes('tear off') || n.includes('tear-off') || n.includes('remove') || n.includes('demo'))
+                return ['0900', 'ROOFING - GENERAL', 'Subcontractor'];
+            if (n.includes('torch') || n.includes('hot mop') || n.includes('2 ply') || n.includes('mod bit') || n.includes('modified'))
+                return ['0820', 'Mod Bit Cap Sheet', 'Subcontractor'];
+            if (n.includes('tpo') || n.includes('membrane'))
+                return ['0610', 'TPO Field Sheet', 'Subcontractor'];
+            if (n.includes('pvc') || n.includes('duro'))
+                return ['0710', 'PVC Field Sheet', 'Subcontractor'];
+            if (n.includes('curb'))
+                return ['1410', 'RTU/HVAC Curbs', 'Subcontractor'];
+            if (n.includes('counter') || n.includes('cf '))
+                return ['1710', 'Surface Mount CF', 'Subcontractor'];
+            if (n.includes('coping'))
+                return ['1610', 'Coping Cap', 'Subcontractor'];
+            if (n.includes('scupper'))
+                return ['2140', 'Primary Scupper', 'Subcontractor'];
+            if (n.includes('drain'))
+                return ['2110', 'Primary Roof Drain', 'Subcontractor'];
+            if (n.includes('walk') || n.includes('walkpad'))
+                return ['2340', 'Walkway Pads', 'Subcontractor'];
+            if (n.includes('gutter'))
+                return ['2410', 'Box Gutter', 'Subcontractor'];
+            if (n.includes('metal') || n.includes('sheet metal'))
+                return ['2010', 'Custom Brake Metal', 'Subcontractor'];
+            if (jobType === 'modbit') return ['0820', 'Mod Bit Cap Sheet', 'Subcontractor'];
+            if (jobType === 'tpo') return ['0610', 'TPO Field Sheet', 'Subcontractor'];
+            if (jobType === 'pvc') return ['0710', 'PVC Field Sheet', 'Subcontractor'];
+            return ['0900', 'ROOFING - GENERAL', 'Subcontractor'];
+        }
+        if (ec.includes('07-100-901')) {
+            if (n.includes('coverboard') || n.includes('cover board'))
+                return ['0400', 'INSULATION', 'Subcontractor'];
+            if (n.includes('tapered'))
+                return ['0420', 'Tapered ISO', 'Subcontractor'];
+            return ['0410', 'Base ISO', 'Subcontractor'];
+        }
+        if (ec.includes('07-100-902')) {
+            if (n.includes('coping')) return ['1610', 'Coping Cap', 'Subcontractor'];
+            if (n.includes('counter')) return ['1710', 'Surface Mount CF', 'Subcontractor'];
+            return ['2010', 'Custom Brake Metal', 'Subcontractor'];
+        }
+        if (ec.includes('07-100-920')) {
+            return ['0900', 'ROOFING - GENERAL', 'Other'];
+        }
+        if (ec.includes('07-100-940')) {
+            if (n.includes('dumpster'))    return ['0900', 'ROOFING - GENERAL', 'Equipment'];
+            if (n.includes('crane'))       return ['0900', 'ROOFING - GENERAL', 'Equipment'];
+            if (n.includes('forklift') || n.includes('telehandler'))
+                                           return ['0900', 'ROOFING - GENERAL', 'Equipment'];
+            if (n.includes('manlift') || n.includes('boom') || n.includes('scissor'))
+                                           return ['0900', 'ROOFING - GENERAL', 'Equipment'];
+            if (n.includes('portable') || n.includes('toilet'))
+                                           return ['0900', 'ROOFING - GENERAL', 'Equipment'];
+            if (n.includes('welder'))      return ['2750', 'Welder Rental', 'Equipment'];
+            return ['0900', 'ROOFING - GENERAL', 'Equipment'];
+        }
+        if (ec.includes('07-100-950')) {
+            if (n.includes('permit'))   return ['0180', 'Permits/Inspections', 'Other'];
+            if (n.includes('bond'))     return ['2810', 'Bid Bond', 'Other'];
+            if (n.includes('freight'))  return ['0900', 'ROOFING - GENERAL', 'Other'];
+            return ['0900', 'ROOFING - GENERAL', 'Other'];
+        }
+
+        // ---- MATERIAL ITEM NAME MATCHING ----
+
+        // --- TPO PRODUCTS ---
+        if ((n.includes('tpo') || n.includes('jm ')) && (n.includes('membrane') || n.includes('mil') || n.includes('roofing')))
+            return isInstall ? ['0610', 'TPO Field Sheet', 'Subcontractor'] : ['0610', 'TPO Field Sheet', 'Material'];
+        if (n.includes('tpo') && n.includes('detail'))
+            return ['0620', 'TPO Flashing Sheet', 'Material'];
+        if (n.includes('tpo-coated') || n.includes('tpo coated'))
+            return ['0620', 'TPO Flashing Sheet', 'Material'];
+        if (n.includes('tpo') && (n.includes('corner') || n.includes('t-joint')))
+            return ['0650', 'TPO Accessories', 'Material'];
+        if (n.includes('tpo') && (n.includes('cleaner') || n.includes('edge sealant')))
+            return ['0650', 'TPO Accessories', 'Material'];
+        if (n.includes('tpo') && n.includes('pipe'))
+            return ['1310', 'Pipe Boots', 'Material'];
+        if (n.includes('bonding adhesive') && !n.includes('pvc'))
+            return ['0630', 'TPO Adhesive', 'Material'];
+        if (n.includes('weathered membrane cleaner'))
+            return ['0650', 'TPO Accessories', 'Material'];
+        if (n.includes('install membrane') && !n.includes('pvc') && !n.includes('versiflex'))
+            return ['0610', 'TPO Field Sheet', 'Subcontractor'];
+
+        // --- PVC / DURO-LAST PRODUCTS ---
+        if ((n.includes('pvc') || n.includes('versiflex') || n.includes('versico')) && (n.includes('membrane') || n.includes('mil') || n.includes(' fb ')))
+            return isInstall ? ['0710', 'PVC Field Sheet', 'Subcontractor'] : ['0710', 'PVC Field Sheet', 'Material'];
+        if ((n.includes('pvc') || n.includes('versico')) && n.includes('detail'))
+            return ['0720', 'PVC Flashing Sheet', 'Material'];
+        if ((n.includes('pvc') || n.includes('versico')) && (n.includes('adhesive') || n.includes('bonding')))
+            return ['0730', 'PVC Adhesive', 'Material'];
+        if ((n.includes('pvc') || n.includes('versiflex')) && (n.includes('corner') || n.includes('cleaner') || n.includes('t-joint')))
+            return ['0750', 'PVC Prefab Accessories', 'Material'];
+        if ((n.includes('pvc') || n.includes('versiflex')) && n.includes('pipe'))
+            return ['1310', 'Pipe Boots', 'Material'];
+        if ((n.includes('pvc') || n.includes('versiflex')) && (n.includes('walk') || n.includes('crossgrip')))
+            return ['2340', 'Walkway Pads', 'Material'];
+        if (n.includes('pvc') && n.includes('coated metal'))
+            return ['0720', 'PVC Flashing Sheet', 'Material'];
+        if (n.includes('urethane adhesive'))
+            return ['0730', 'PVC Adhesive', 'Material'];
+        if (n.includes('duro-last') || n.includes('durolast') || n.includes('duro last')) {
+            if (n.includes('adhesive')) return ['0730', 'PVC Adhesive', 'Material'];
+            if (n.includes('screw') || n.includes('fastener')) return ['0740', 'PVC Fasteners/Plates', 'Material'];
+            if (n.includes('plate')) return ['0740', 'PVC Fasteners/Plates', 'Material'];
+            if (n.includes('corner') || n.includes('accessories')) return ['0750', 'PVC Prefab Accessories', 'Material'];
+            return isInstall ? ['0710', 'PVC Field Sheet', 'Subcontractor'] : ['0710', 'PVC Field Sheet', 'Material'];
+        }
+
+        // --- MODIFIED BITUMEN PRODUCTS ---
+        if (n.includes('dynaweld') || (n.includes('cap') && n.includes('sheet')) || (n.includes('cap') && n.includes('180')))
+            return isInstall ? ['0820', 'Mod Bit Cap Sheet', 'Subcontractor'] : ['0820', 'Mod Bit Cap Sheet', 'Material'];
+        if (n.includes('dynalastic') || n.includes('base sheet') || n.includes('base ply') || (n.includes('dyna') && n.includes('180s')))
+            return isInstall ? ['0810', 'Mod Bit Base Sheet', 'Subcontractor'] : ['0810', 'Mod Bit Base Sheet', 'Material'];
+        if (n.includes('propane') || (n.includes('torch') && !n.includes('down')))
+            return ['0850', 'Mod Bit Accessories', 'Material'];
+        if (n.includes('asphalt primer'))
+            return ['0850', 'Mod Bit Accessories', 'Material'];
+        if (n.includes('alsan'))
+            return ['0850', 'Mod Bit Accessories', 'Material'];
+        if (n.includes('bestile') || n.includes('utility cement'))
+            return ['0850', 'Mod Bit Accessories', 'Material'];
+        if (n.includes('granule'))
+            return ['0850', 'Mod Bit Accessories', 'Material'];
+        if (n.includes('grout'))
+            return ['0850', 'Mod Bit Accessories', 'Material'];
+
+        // --- INSULATION / COVER BOARD ---
+        if (n.includes('densdeck') || n.includes('structodeck') || n.includes('protector hd') || n.includes('securock'))
+            return ['0400', 'INSULATION', 'Material'];
+        if (n.includes('coverboard') || n.includes('cover board'))
+            return isInstall ? ['0400', 'INSULATION', 'Subcontractor'] : ['0400', 'INSULATION', 'Material'];
+        if (n.includes('energy 3') || n.includes('polyiso') || n.match(/\d+\s*psi/) || n.includes('secureshield')) {
+            if (n.includes('tapered')) return ['0420', 'Tapered ISO', 'Material'];
+            return ['0410', 'Base ISO', 'Material'];
+        }
+        if (n.includes('flute fill') || n.includes('eps'))
+            return ['0410', 'Base ISO', 'Material'];
+        if (n.includes('iso') && !n.includes('versico'))
+            return isInstall ? ['0410', 'Base ISO', 'Subcontractor'] : ['0410', 'Base ISO', 'Material'];
+        if (n.includes('fiber cant') || n.includes('cant strip'))
+            return ['0410', 'Base ISO', 'Material'];
+        if (n.includes('2-part uia') || n.includes('canister'))
+            return ['0630', 'TPO Adhesive', 'Material'];
+
+        // --- METAL ROOFING ---
+        if (n.includes('standing seam') || n.includes('lockseam') || n.includes('battenlock') || n.includes('mbci'))
+            return isInstall ? ['1040', 'Metal Roof Accessories', 'Subcontractor'] : ['1040', 'Metal Roof Accessories', 'Material'];
+        if (n.includes('tri bead') || n.includes('tape sealer'))
+            return ['1040', 'Metal Roof Accessories', 'Material'];
+        if (n.includes('panel clip'))
+            return ['1030', 'Metal Roof Fasteners', 'Material'];
+
+        // --- STEEP SLOPE ---
+        if ((n.includes('ice') && n.includes('water')) || n.includes('grace'))
+            return isInstall ? ['1120', 'Underlayment', 'Subcontractor'] : ['1120', 'Underlayment', 'Material'];
+        if (n.includes('shingle') || n.includes('landmark'))
+            return isInstall ? ['1120', 'Underlayment', 'Subcontractor'] : ['1120', 'Underlayment', 'Material'];
+        if (n.includes('shadowridge') || n.includes('ridge cap'))
+            return ['1140', 'Ridge/Hip/Starter', 'Material'];
+        if (n.includes('ridge vent') || n.includes('roof vent') || n.includes('attic vent'))
+            return ['2250', 'Relief Vent', 'Material'];
+        if (n.includes('synthetic') || n.includes('felt') || n.includes('roof runner'))
+            return ['1120', 'Underlayment', 'Material'];
+        if (n.includes('starter') && !n.includes('motor'))
+            return ['1140', 'Ridge/Hip/Starter', 'Material'];
+
+        // --- SHEET METAL / FLASHING ---
+        if (n.includes('coping'))
+            return isInstall ? ['1610', 'Coping Cap', 'Subcontractor'] : ['1610', 'Coping Cap', 'Material'];
+        if (n.includes('counterflashing') || n.includes('counter flashing'))
+            return isInstall ? ['1710', 'Surface Mount CF', 'Subcontractor'] : ['1710', 'Surface Mount CF', 'Material'];
+        if (n.includes('headwall') || n.includes('head wall'))
+            return isInstall ? ['1820', 'Headwall Flashing', 'Subcontractor'] : ['1820', 'Headwall Flashing', 'Material'];
+        if (n.includes('edge metal') || n.includes('drip edge') || n.includes('eave rake') || n.includes('rake trim') || n.includes('eave trim'))
+            return isInstall ? ['1510', 'Drip Edge', 'Subcontractor'] : ['1510', 'Drip Edge', 'Material'];
+        if (n.includes('side wall') || n.includes('sidewall') || n.includes('endwall') || n.includes('end wall'))
+            return isInstall ? ['2010', 'Custom Brake Metal', 'Subcontractor'] : ['2010', 'Custom Brake Metal', 'Material'];
+        if (n.includes('t-edge') || n.includes('compression'))
+            return isInstall ? ['1540', 'T-Edge/Compression Term', 'Subcontractor'] : ['1540', 'T-Edge/Compression Term', 'Material'];
+        if (n.includes('fascia'))
+            return isInstall ? ['1530', 'Fascia Metal', 'Subcontractor'] : ['1530', 'Fascia Metal', 'Material'];
+        if (n.includes('gravel stop'))
+            return isInstall ? ['1520', 'Gravel Stop', 'Subcontractor'] : ['1520', 'Gravel Stop', 'Material'];
+        if (n.includes('step flash'))
+            return isInstall ? ['1810', 'Step Flashing', 'Subcontractor'] : ['1810', 'Step Flashing', 'Material'];
+        if (n.includes('valley'))
+            return isInstall ? ['1910', 'Valley Metal', 'Subcontractor'] : ['1910', 'Valley Metal', 'Material'];
+        if (n.includes('transition'))
+            return isInstall ? ['1920', 'Transition Flashing', 'Subcontractor'] : ['1920', 'Transition Flashing', 'Material'];
+
+        // --- PENETRATIONS ---
+        if (n.includes('curb'))
+            return isInstall ? ['1410', 'RTU/HVAC Curbs', 'Subcontractor'] : ['1410', 'RTU/HVAC Curbs', 'Material'];
+        if (n.includes('pipe boot') || n.includes('pipe seal'))
+            return ['1310', 'Pipe Boots', 'Material'];
+        if (n.includes('pitch p') || n.includes('pourable'))
+            return ['1320', 'Pitch Pans/Pourable Sealer', 'Material'];
+        if (n.includes('ss pitch pocket'))
+            return ['1320', 'Pitch Pans/Pourable Sealer', 'Material'];
+        if (n.includes('penetration'))
+            return isInstall ? ['1320', 'Pitch Pans/Pourable Sealer', 'Subcontractor'] : ['1320', 'Pitch Pans/Pourable Sealer', 'Material'];
+
+        // --- DRAINS & SCUPPERS ---
+        if (n.includes('drain') || n.includes('retrofit'))
+            return isInstall ? ['2110', 'Primary Roof Drain', 'Subcontractor'] : ['2110', 'Primary Roof Drain', 'Material'];
+        if (n.includes('scupper'))
+            return isInstall ? ['2140', 'Primary Scupper', 'Subcontractor'] : ['2140', 'Primary Scupper', 'Material'];
+
+        // --- GUTTERS ---
+        if (n.includes('gutter') && !n.includes('downspout'))
+            return isInstall ? ['2410', 'Box Gutter', 'Subcontractor'] : ['2410', 'Box Gutter', 'Material'];
+        if (n.includes('downspout'))
+            return isInstall ? ['2430', 'Downspouts', 'Subcontractor'] : ['2430', 'Downspouts', 'Material'];
+        if (n.includes('leader head'))
+            return ['2010', 'Custom Brake Metal', 'Material'];
+
+        // --- SHEET METAL MATERIALS ---
+        if (n.includes('galv') || n.includes('kynar') || n.includes('prefinished') || n.includes('ga.'))
+            return ['2010', 'Custom Brake Metal', 'Material'];
+        if (n.includes('break metal') || n.includes('brake metal') || n.includes('breaks'))
+            return ['2010', 'Custom Brake Metal', 'Material'];
+        if (n.includes('sheet metal sub'))
+            return ['2010', 'Custom Brake Metal', 'Subcontractor'];
+        if (n.includes('labor for lf') || isFabricate)
+            return ['2010', 'Custom Brake Metal', 'Labor'];
+        if (n.includes('cleat'))
+            return ['2010', 'Custom Brake Metal', 'Material'];
+        if (n.includes('stainless') || n.includes(' ss ') || n.match(/\bss\b/))
+            return ['2010', 'Custom Brake Metal', 'Material'];
+
+        // --- WALKWAY / SAFETY ---
+        if (n.includes('walk pad') || n.includes('walkpad') || n.includes('walkway') || n.includes('dynatread'))
+            return isInstall ? ['2340', 'Walkway Pads', 'Subcontractor'] : ['2340', 'Walkway Pads', 'Material'];
+        if (n.includes('expansion'))
+            return isInstall ? ['1920', 'Transition Flashing', 'Subcontractor'] : ['1920', 'Transition Flashing', 'Material'];
+        if (n.includes('safety') && (n.includes('anchor') || n.includes('tie')))
+            return ['2310', 'Roof Anchor/Tie-Off', 'Material'];
+
+        // --- DECK / SUBSTRATE ---
+        if (n.includes('plywood') || n.includes('cdx') || n.includes('osb'))
+            return ['0900', 'ROOFING - GENERAL', 'Material'];
+        if (n.includes('wood') || n.includes('nailer') || n.includes('2 x 6') || n.includes('2x6') || n.match(/\d+\s*x\s*\d+.*pt/) || n.includes('blocking') || n.includes('framing'))
+            return isInstall ? ['0900', 'ROOFING - GENERAL', 'Subcontractor'] : ['0900', 'ROOFING - GENERAL', 'Material'];
+
+        // --- TEAR-OFF ---
+        if (n.includes('tear off') || n.includes('tear-off') || n.includes('remove') || n.includes('demo'))
+            return ['0900', 'ROOFING - GENERAL', 'Subcontractor'];
+
+        // --- SEALANTS & CAULK (context-aware) ---
+        if (n.includes('caulk') || n.includes('mastic') || n.includes('sealant')) {
+            if (ec.startsWith('07-2')) return ['2530', 'Butyl/Mastic', 'Material'];
+            if (ec.startsWith('07-5')) return ['0650', 'TPO Accessories', 'Material'];
+            if (ec.startsWith('07-6')) return ['0750', 'PVC Prefab Accessories', 'Material'];
+            if (ec.startsWith('07-4')) return ['0850', 'Mod Bit Accessories', 'Material'];
+            if (jobType === 'modbit') return ['0850', 'Mod Bit Accessories', 'Material'];
+            if (jobType === 'tpo') return ['0650', 'TPO Accessories', 'Material'];
+            if (jobType === 'pvc') return ['0750', 'PVC Prefab Accessories', 'Material'];
+            return ['2530', 'Butyl/Mastic', 'Material'];
+        }
+        if (n.includes('silicone'))
+            return ['2520', 'Silicone Sealant', 'Material'];
+        if (n.includes('primer') || n.includes('cleaner'))
+            return ['2550', 'Primers/Cleaners', 'Material'];
+
+        // --- FASTENERS (context-aware by job type) ---
+        if (n.includes('ultrafast') || n.includes('high load') || n.includes('hpvx') || n.includes('insultite') || n.includes('purlin fastener')) {
+            if (jobType === 'pvc' || n.includes('pvc')) return ['0740', 'PVC Fasteners/Plates', 'Material'];
+            if (jobType === 'tpo' || n.includes('tpo')) return ['0640', 'TPO Fasteners/Plates', 'Material'];
+            return ['0900', 'ROOFING - GENERAL', 'Material'];
+        }
+        if (n.includes('plate') || n.includes('rhinoplate') || n.includes('anchor disc') || n.includes('bearing plate')) {
+            if (jobType === 'pvc' || n.includes('pvc')) return ['0740', 'PVC Fasteners/Plates', 'Material'];
+            if (jobType === 'tpo' || n.includes('tpo')) return ['0640', 'TPO Fasteners/Plates', 'Material'];
+            if (ec.startsWith('07-100-170')) {
+                if (jobType === 'modbit') return ['0850', 'Mod Bit Accessories', 'Material'];
+                return ['0900', 'ROOFING - GENERAL', 'Material'];
+            }
+            return ['0900', 'ROOFING - GENERAL', 'Material'];
+        }
+        if ((n.includes('fastener') || n.includes('screw')) && !n.includes('coping')) {
+            if (jobType === 'pvc' || n.includes('pvc')) return ['0740', 'PVC Fasteners/Plates', 'Material'];
+            if (jobType === 'tpo' || n.includes('tpo')) return ['0640', 'TPO Fasteners/Plates', 'Material'];
+            return ['0900', 'ROOFING - GENERAL', 'Material'];
+        }
+        if (n.includes('woodzac') || n.includes('neoprene washer') || n.includes('ss pan head')) {
+            if (jobType === 'pvc' || n.includes('pvc')) return ['0740', 'PVC Fasteners/Plates', 'Material'];
+            if (jobType === 'tpo' || n.includes('tpo')) return ['0640', 'TPO Fasteners/Plates', 'Material'];
+            return ['0900', 'ROOFING - GENERAL', 'Material'];
+        }
+        if (n.includes('drive pin') || n.includes('simplex') || n.includes('nail')) {
+            if (jobType === 'pvc') return ['0740', 'PVC Fasteners/Plates', 'Material'];
+            if (jobType === 'tpo') return ['0640', 'TPO Fasteners/Plates', 'Material'];
+            if (jobType === 'modbit') return ['0850', 'Mod Bit Accessories', 'Material'];
+            return ['0900', 'ROOFING - GENERAL', 'Material'];
+        }
+        if (n.includes('coil nail'))
+            return ['1030', 'Metal Roof Fasteners', 'Material'];
+        if (n.includes('rivet') || n.includes('#14a') || n.includes('#13a') || n.includes('pancake'))
+            return ['1030', 'Metal Roof Fasteners', 'Material'];
+
+        // --- FLASHING CEMENT (context-aware) ---
+        if (n.includes('flashing cement') || n.includes('plastic cement')) {
+            if (jobType === 'modbit') return ['0850', 'Mod Bit Accessories', 'Material'];
+            if (jobType === 'tpo') return ['0630', 'TPO Adhesive', 'Material'];
+            return ['2530', 'Butyl/Mastic', 'Material'];
+        }
+        if (n.includes('plastic cap nail') || n.includes('cap nail')) {
+            if (jobType === 'tpo') return ['0640', 'TPO Fasteners/Plates', 'Material'];
+            if (jobType === 'pvc') return ['0740', 'PVC Fasteners/Plates', 'Material'];
+            return ['0900', 'ROOFING - GENERAL', 'Material'];
+        }
+
+        // --- GENERAL / MOB / EQUIP / WARRANTY ---
+        if (n.includes('mobilize') || n.includes('demobilize'))
+            return ['0900', 'ROOFING - GENERAL', 'Labor'];
+        if (n.includes('supervis'))
+            return ['0900', 'ROOFING - GENERAL', 'Labor'];
+        if (n.includes('safety setup') || n.includes('safety'))
+            return ['0900', 'ROOFING - GENERAL', 'Labor'];
+        if (n.includes('freight'))
+            return ['0900', 'ROOFING - GENERAL', 'Other'];
+        if (n.includes('dumpster'))
+            return ['0900', 'ROOFING - GENERAL', 'Equipment'];
+        if (n.includes('portable toilet'))
+            return ['0900', 'ROOFING - GENERAL', 'Equipment'];
+        if (n.includes('permit'))
+            return ['0180', 'Permits/Inspections', 'Other'];
+        if (n.includes('forklift') || n.includes('telehandler'))
+            return ['0900', 'ROOFING - GENERAL', 'Equipment'];
+        if (n.includes('manlift') || n.includes('boom lift') || n.includes('scissor') || n.includes('crane'))
+            return ['0900', 'ROOFING - GENERAL', 'Equipment'];
+        if (n.includes('warranty'))
+            return ['0900', 'ROOFING - GENERAL', 'Other'];
+        if (n.includes('hotel') || n.includes('per diem') || n.includes('travel'))
+            return ['0900', 'ROOFING - GENERAL', 'Other'];
+
+        // --- MISC MATERIALS ---
+        if (n.includes('membrane') && n.includes('4"'))
+            return ['0850', 'Mod Bit Accessories', 'Material'];
+        if (n.includes('spray paint') || n.includes('touch up'))
+            return ['3310', 'Small Tools/Consumables', 'Material'];
+        if (n.includes('vent') && !n.includes('event'))
+            return ['2250', 'Relief Vent', 'Material'];
+        if (n.includes('trim') && (n.includes('eave') || n.includes('rake') || n.includes('edge')))
+            return ['1510', 'Drip Edge', 'Material'];
+        if (n.includes('trim') && (n.includes('side') || n.includes('wall') || n.includes('end')))
+            return ['2010', 'Custom Brake Metal', 'Material'];
+        if (n.includes('roof hatch') || n.includes('hatch'))
+            return ['0900', 'ROOFING - GENERAL', 'Material'];
+
+        // --- VAPOR BARRIER / SLIP SHEET ---
+        if (n.includes('vapor') || n.includes('vb '))
+            return ['0510', 'Vapor Retarder', 'Material'];
+        if (n.includes('slip sheet'))
+            return ['0530', 'Slip Sheet', 'Material'];
+
+        // --- COATINGS ---
+        if (n.includes('silicone coat'))
+            return ['1210', 'Silicone Coating', 'Material'];
+        if (n.includes('acrylic coat'))
+            return ['1220', 'Acrylic Coating', 'Material'];
+
+        // --- EDGE CODE FALLBACKS ---
+        if (ec.includes('07-100-150'))
+            return ['2010', 'Custom Brake Metal', 'Material'];
+        if (ec.includes('07-100-160'))
+            return ['3310', 'Small Tools/Consumables', 'Material'];
+        if (ec.includes('07-100-170')) {
+            if (jobType === 'tpo') return ['0640', 'TPO Fasteners/Plates', 'Material'];
+            if (jobType === 'pvc') return ['0740', 'PVC Fasteners/Plates', 'Material'];
+            if (jobType === 'modbit') return ['0850', 'Mod Bit Accessories', 'Material'];
+            return ['0900', 'ROOFING - GENERAL', 'Material'];
+        }
+
+        // --- GENERAL EDGE CODE PREFIX FALLBACKS ---
+        if (ec.startsWith('07-5'))
+            return isInstall ? ['0610', 'TPO Field Sheet', 'Subcontractor'] : ['0610', 'TPO Field Sheet', 'Material'];
+        if (ec.startsWith('07-6'))
+            return isInstall ? ['0710', 'PVC Field Sheet', 'Subcontractor'] : ['0710', 'PVC Field Sheet', 'Material'];
+        if (ec.startsWith('07-4'))
+            return isInstall ? ['0820', 'Mod Bit Cap Sheet', 'Subcontractor'] : ['0820', 'Mod Bit Cap Sheet', 'Material'];
+        if (ec.startsWith('07-2'))
+            return isInstall ? ['2010', 'Custom Brake Metal', 'Subcontractor'] : ['2010', 'Custom Brake Metal', 'Material'];
+        if (ec.startsWith('07-1'))
+            return isInstall ? ['1120', 'Underlayment', 'Subcontractor'] : ['1120', 'Underlayment', 'Material'];
+        if (ec.startsWith('07-3'))
+            return isInstall ? ['1040', 'Metal Roof Accessories', 'Subcontractor'] : ['1040', 'Metal Roof Accessories', 'Material'];
+
+        // Ultimate fallback
+        if (isInstall) return ['0900', 'ROOFING - GENERAL', 'Subcontractor'];
+        return ['0900', 'ROOFING - GENERAL', 'Material'];
+    }
+
+    // ========================
+    // APPLICATION STATE
+    // ========================
+    var consolidatedData = null;
+    var sovData = null;
+    var recapLoaded = false;
+    var debugLog = [];
+    var lastResult = null;
+
+    // ========================
+    // HELPERS
+    // ========================
+    function fmt(n) {
+        return '$' + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    }
+    function pct(n) {
+        return (n * 100).toFixed(1) + '%';
+    }
+    function parseNum(s) {
+        if (typeof s === 'number') return s;
+        if (!s) return 0;
+        return parseFloat(s.toString().replace(/[$,\s]/g, '')) || 0;
+    }
+    function cleanStr(s) {
+        return (s || '').toString().trim();
+    }
+
+    // ========================
+    // CONSOLIDATED REPORT PARSER
+    // ========================
+    function parseConsolidatedReport(workbook) {
+        var sheetName = workbook.SheetNames[0];
+        var sheet = workbook.Sheets[sheetName];
+        var raw = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+
+        var jobName = '';
+        var headerRow = -1;
+        var cols = {};
+
+        // Extract job name from early rows
+        for (var i = 0; i < Math.min(raw.length, 10); i++) {
+            var row = raw[i];
+            if (!row) continue;
+            for (var j = 0; j < row.length; j++) {
+                var cell = cleanStr(row[j]);
+                if (cell.length > 10 && !cell.toLowerCase().includes('report') &&
+                    !cell.toLowerCase().includes('date') && !cell.toLowerCase().includes('page') &&
+                    !cell.toLowerCase().includes('estimat') && !cell.toLowerCase().includes('print')) {
+                    if (!jobName) jobName = cell;
+                }
+            }
+        }
+
+        // Find header row by looking for key column names
+        for (var i = 0; i < Math.min(raw.length, 30); i++) {
+            var row = raw[i];
+            if (!row) continue;
+            var rowLower = row.map(function(c) { return cleanStr(c).toLowerCase(); });
+
+            var hasDesc = rowLower.some(function(c) { return c.includes('description') || c === 'item' || c === 'name' || c.includes('item name'); });
+            var hasQty = rowLower.some(function(c) { return c.includes('qty') || c.includes('quantity') || c === 'quan'; });
+            var hasCost = rowLower.some(function(c) { return c.includes('cost') || c.includes('price') || c.includes('extension') || c.includes('amount') || c.includes('total'); });
+
+            if (hasDesc && (hasQty || hasCost)) {
+                headerRow = i;
+                for (var j = 0; j < row.length; j++) {
+                    var h = cleanStr(row[j]).toLowerCase();
+                    if ((h.includes('description') || h.includes('item name') || h === 'name' || h === 'item') && cols.desc === undefined) cols.desc = j;
+                    if ((h.includes('user code') || h === 'code' || h.includes('item #') || h.includes('item no') || h.includes('user cd')) && cols.code === undefined) cols.code = j;
+                    if ((h.includes('qty') || h.includes('quantity') || h === 'quan') && cols.qty === undefined) cols.qty = j;
+                    if ((h === 'unit' || h === 'uom' || h === 'u/m' || h.includes('unit of')) && !h.includes('cost') && !h.includes('price') && cols.unit === undefined) cols.unit = j;
+                    if ((h.includes('unit cost') || h.includes('unit price') || h.includes('u/cost') || h === 'rate') && cols.unitCost === undefined) cols.unitCost = j;
+                    if ((h.includes('extension') || h.includes('ext.') || h.includes('extended') || h.includes('total cost') || (h === 'total' && !h.includes('unit')) || (h.includes('amount') && !h.includes('unit'))) && cols.ext === undefined) cols.ext = j;
+                    if ((h.includes('category') || h.includes('type') || h.includes('class')) && cols.category === undefined) cols.category = j;
+                }
+                break;
+            }
+        }
+
+        if (headerRow === -1) {
+            throw new Error('Could not find column headers in Consolidated Report. Expected columns like Description, Quantity, Extension/Amount.');
+        }
+
+        // Parse line items
+        var items = [];
+        for (var i = headerRow + 1; i < raw.length; i++) {
+            var row = raw[i];
+            if (!row) continue;
+
+            var desc = cleanStr(row[cols.desc]);
+            if (!desc || desc.length < 2) continue;
+
+            // Skip total/subtotal/header rows
+            var descLower = desc.toLowerCase();
+            if (descLower.startsWith('total') || descLower.startsWith('subtotal') ||
+                descLower.startsWith('grand total') || descLower === 'totals' ||
+                descLower.includes('report total') || descLower.includes('page total') ||
+                descLower.includes('--- ')) continue;
+
+            var qty = parseNum(row[cols.qty]);
+            var unitCost = cols.unitCost !== undefined ? parseNum(row[cols.unitCost]) : 0;
+            var ext = cols.ext !== undefined ? parseNum(row[cols.ext]) : 0;
+
+            // Compute extension from qty * unitCost if missing
+            if (ext === 0 && qty !== 0 && unitCost !== 0) {
+                ext = qty * unitCost;
+            }
+
+            // Skip rows with no cost data at all
+            if (ext === 0 && qty === 0 && unitCost === 0) continue;
+
+            // Handle lump sum items (qty=0 but extension exists)
+            var finalQty = qty;
+            var finalUnitCost = unitCost;
+            if (finalQty === 0 && ext !== 0) {
+                finalQty = 1;
+                finalUnitCost = ext;
+            }
+
+            var edgeCode = cols.code !== undefined ? cleanStr(row[cols.code]) : '';
+            var unit = cols.unit !== undefined ? cleanStr(row[cols.unit]) : 'EA';
+
+            items.push({
+                itemName: desc,
+                edgeCode: edgeCode,
+                quantity: finalQty,
+                unit: unit,
+                unitCost: finalUnitCost,
+                extension: ext
+            });
+        }
+
+        return { jobName: jobName, items: items, headerRow: headerRow, colMap: cols };
+    }
+
+    // ========================
+    // SOV REPORT PARSER
+    // ========================
+    function parseSovReport(workbook) {
+        var sheetName = workbook.SheetNames[0];
+        var sheet = workbook.Sheets[sheetName];
+        var raw = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+
+        var headerRow = -1;
+        var cols = {};
+
+        for (var i = 0; i < Math.min(raw.length, 30); i++) {
+            var row = raw[i];
+            if (!row) continue;
+            var rowLower = row.map(function(c) { return cleanStr(c).toLowerCase(); });
+
+            var hasDiv = rowLower.some(function(c) { return c.includes('division') || c.includes('category') || c.includes('section') || c.includes('description'); });
+            var hasCost = rowLower.some(function(c) { return c.includes('material') || c.includes('labor') || c.includes('total') || c.includes('cost') || c.includes('amount'); });
+
+            if (hasDiv && hasCost) {
+                headerRow = i;
+                for (var j = 0; j < row.length; j++) {
+                    var h = cleanStr(row[j]).toLowerCase();
+                    if ((h.includes('division') || h.includes('description') || h.includes('category') || h.includes('section')) && cols.division === undefined) cols.division = j;
+                    if (h.includes('material') && !h.includes('total') && cols.material === undefined) cols.material = j;
+                    if (h.includes('labor') && !h.includes('total') && cols.labor === undefined) cols.labor = j;
+                    if (h.includes('sub') && !h.includes('total') && cols.sub === undefined) cols.sub = j;
+                    if (h.includes('equip') && !h.includes('total') && cols.equipment === undefined) cols.equipment = j;
+                    if (h.includes('other') && !h.includes('total') && cols.other === undefined) cols.other = j;
+                    if ((h === 'total' || h === 'total cost' || h.includes('net cost') || h.includes('extension') || h === 'amount') && cols.total === undefined) cols.total = j;
+                }
+                break;
+            }
+        }
+
+        if (headerRow === -1) {
+            return { divisions: [], totalCost: 0 };
+        }
+
+        var divisions = [];
+        var totalCost = 0;
+
+        for (var i = headerRow + 1; i < raw.length; i++) {
+            var row = raw[i];
+            if (!row) continue;
+
+            var divName = cols.division !== undefined ? cleanStr(row[cols.division]) : '';
+            if (!divName || divName.length < 2) continue;
+
+            var divLower = divName.toLowerCase();
+            if (divLower.startsWith('grand total') || divLower === 'totals') {
+                totalCost = cols.total !== undefined ? parseNum(row[cols.total]) : 0;
+                continue;
+            }
+            if (divLower.startsWith('total') || divLower.startsWith('subtotal')) continue;
+
+            var total = cols.total !== undefined ? parseNum(row[cols.total]) : 0;
+            if (total === 0) continue;
+
+            divisions.push({
+                name: divName,
+                material: cols.material !== undefined ? parseNum(row[cols.material]) : 0,
+                labor: cols.labor !== undefined ? parseNum(row[cols.labor]) : 0,
+                sub: cols.sub !== undefined ? parseNum(row[cols.sub]) : 0,
+                equipment: cols.equipment !== undefined ? parseNum(row[cols.equipment]) : 0,
+                other: cols.other !== undefined ? parseNum(row[cols.other]) : 0,
+                total: total
+            });
+        }
+
+        if (totalCost === 0) {
+            totalCost = divisions.reduce(function(sum, d) { return sum + d.total; }, 0);
+        }
+
+        return { divisions: divisions, totalCost: totalCost };
+    }
+
+    // ========================
+    // TRANSFORM ENGINE
+    // ========================
+    function transformBudget(consData, sellingPrice) {
+        var items = consData.items;
+        debugLog = [];
+
+        // Detect job type
+        detectedJobType = detectJobType(items);
+        debugLog.push({ msg: 'Job type detected: ' + detectedJobType, type: 'ok' });
+        debugLog.push({ msg: 'Total items to process: ' + items.length, type: 'ok' });
+
+        // Map each item to JT cost codes
+        var budgetRows = [];
+        var totalCost = 0;
+
+        for (var i = 0; i < items.length; i++) {
+            var item = items[i];
+            var mapping = getCCMapping(item.itemName, item.edgeCode, detectedJobType);
+            var ccCode = mapping[0];
+            var ccName = mapping[1];
+            var costType = mapping[2];
+            var costGroup = getCostGroup(ccCode);
+
+            totalCost += item.extension;
+
+            debugLog.push({
+                msg: '"' + item.itemName + '" [' + item.edgeCode + '] -> ' + ccCode + ' ' + ccName + ' (' + costType + ') | Group: ' + costGroup,
+                type: CC_CODES[ccCode] ? 'ok' : 'warn'
+            });
+
+            budgetRows.push({
+                costCode: ccCode,
+                costCodeName: ccName,
+                costGroup: costGroup,
+                costType: costType,
+                description: item.itemName,
+                quantity: item.quantity,
+                unit: expandUnit(item.unit),
+                unitCost: item.unitCost,
+                extendedCost: item.extension,
+                unitPrice: 0,
+                extendedPrice: 0
+            });
+        }
+
+        // Calculate markup
+        var markupRate = totalCost > 0 ? sellingPrice / totalCost : 1;
+        debugLog.push({ msg: 'Markup rate: ' + (markupRate * 100).toFixed(2) + '% (Selling: ' + fmt(sellingPrice) + ' / Cost: ' + fmt(totalCost) + ')', type: 'ok' });
+
+        // Apply markup to each line
+        for (var i = 0; i < budgetRows.length; i++) {
+            budgetRows[i].unitPrice = Math.round(budgetRows[i].unitCost * markupRate * 100) / 100;
+            budgetRows[i].extendedPrice = Math.round(budgetRows[i].extendedCost * markupRate * 100) / 100;
+        }
+
+        // Adjust for rounding - ensure total price matches selling price exactly
+        var totalPrice = budgetRows.reduce(function(s, r) { return s + r.extendedPrice; }, 0);
+        var roundingDiff = sellingPrice - totalPrice;
+        if (Math.abs(roundingDiff) > 0.001 && budgetRows.length > 0) {
+            // Apply rounding adjustment to the largest line item
+            var largestIdx = 0;
+            for (var i = 1; i < budgetRows.length; i++) {
+                if (budgetRows[i].extendedPrice > budgetRows[largestIdx].extendedPrice) {
+                    largestIdx = i;
+                }
+            }
+            budgetRows[largestIdx].extendedPrice = Math.round((budgetRows[largestIdx].extendedPrice + roundingDiff) * 100) / 100;
+            if (budgetRows[largestIdx].quantity !== 0) {
+                budgetRows[largestIdx].unitPrice = Math.round((budgetRows[largestIdx].extendedPrice / budgetRows[largestIdx].quantity) * 100) / 100;
+            }
+            debugLog.push({ msg: 'Rounding adjustment: ' + fmt(roundingDiff) + ' applied to "' + budgetRows[largestIdx].description + '"', type: 'warn' });
+        }
+
+        return {
+            rows: budgetRows,
+            totalCost: totalCost,
+            totalPrice: sellingPrice,
+            markupRate: markupRate,
+            markupPercent: ((markupRate - 1) * 100).toFixed(1)
+        };
+    }
+
+    // ========================
+    // CSV GENERATION
+    // ========================
+    function generateCSV(rows) {
+        var headers = [
+            'Cost Code', 'Cost Code Name', 'Cost Group', 'Cost Type',
+            'Description', 'Quantity', 'Unit',
+            'Unit Cost', 'Total Cost', 'Unit Price', 'Total Price'
+        ];
+
+        var csvRows = [headers.join(',')];
+
+        for (var i = 0; i < rows.length; i++) {
+            var r = rows[i];
+            var line = [
+                r.costCode,
+                '"' + r.costCodeName.replace(/"/g, '""') + '"',
+                '"' + r.costGroup.replace(/"/g, '""') + '"',
+                r.costType,
+                '"' + r.description.replace(/"/g, '""') + '"',
+                r.quantity.toFixed(2),
+                '"' + r.unit + '"',
+                r.unitCost.toFixed(2),
+                r.extendedCost.toFixed(2),
+                r.unitPrice.toFixed(2),
+                r.extendedPrice.toFixed(2)
+            ];
+            csvRows.push(line.join(','));
+        }
+
+        return csvRows.join('\n');
+    }
+
+    // ========================
+    // UI RENDERING
+    // ========================
+    function renderResults(result, jobName, sellingPrice) {
+        // Job banner
+        document.getElementById('jobName').textContent = jobName || 'Untitled Job';
+        document.getElementById('lineItemCount').textContent = result.rows.length;
+
+        // Unique cost groups
+        var groupSet = {};
+        for (var i = 0; i < result.rows.length; i++) {
+            groupSet[result.rows[i].costGroup] = true;
+        }
+        document.getElementById('costGroupCount').textContent = Object.keys(groupSet).length;
+        document.getElementById('markupPercent').textContent = result.markupPercent + '%';
+        document.getElementById('jobTypeDisplay').textContent = detectedJobType.toUpperCase();
+
+        // Validation
+        var diff = Math.abs(result.totalPrice - sellingPrice);
+        var validationBox = document.getElementById('validationBox');
+        var validationTitle = document.getElementById('validationTitle');
+
+        if (diff < 0.02) {
+            validationBox.className = 'validation-box';
+            validationTitle.textContent = 'TOTALS MATCH';
+        } else {
+            validationBox.className = 'validation-box error';
+            validationTitle.textContent = 'TOTALS MISMATCH';
+        }
+
+        document.getElementById('totalCost').textContent = fmt(result.totalCost);
+        document.getElementById('totalPrice').textContent = fmt(result.totalPrice);
+        document.getElementById('recapPrice').textContent = fmt(sellingPrice);
+        document.getElementById('priceDiff').textContent = fmt(diff);
+
+        // Group summary
+        var groupTotals = {};
+        for (var i = 0; i < result.rows.length; i++) {
+            var g = result.rows[i].costGroup;
+            if (!groupTotals[g]) groupTotals[g] = 0;
+            groupTotals[g] += result.rows[i].extendedPrice;
+        }
+
+        var groupSorted = Object.keys(groupTotals).map(function(k) { return [k, groupTotals[k]]; });
+        groupSorted.sort(function(a, b) { return b[1] - a[1]; });
+
+        var groupBody = document.getElementById('groupSummary');
+        groupBody.innerHTML = '';
+
+        for (var i = 0; i < groupSorted.length; i++) {
+            var tr = document.createElement('tr');
+            tr.innerHTML = '<td>' + groupSorted[i][0] + '</td><td>' + fmt(groupSorted[i][1]) + '</td><td>' + ((groupSorted[i][1] / result.totalPrice) * 100).toFixed(1) + '%</td>';
+            groupBody.appendChild(tr);
+        }
+        var totalGroupRow = document.createElement('tr');
+        totalGroupRow.className = 'total-row';
+        totalGroupRow.innerHTML = '<td>TOTAL</td><td>' + fmt(result.totalPrice) + '</td><td>100.0%</td>';
+        groupBody.appendChild(totalGroupRow);
+
+        // Type summary
+        var typeTotals = {};
+        for (var i = 0; i < result.rows.length; i++) {
+            var t = result.rows[i].costType;
+            if (!typeTotals[t]) typeTotals[t] = 0;
+            typeTotals[t] += result.rows[i].extendedPrice;
+        }
+
+        var typeSorted = Object.keys(typeTotals).map(function(k) { return [k, typeTotals[k]]; });
+        typeSorted.sort(function(a, b) { return b[1] - a[1]; });
+
+        var typeBody = document.getElementById('typeSummary');
+        typeBody.innerHTML = '';
+
+        for (var i = 0; i < typeSorted.length; i++) {
+            var tr = document.createElement('tr');
+            tr.innerHTML = '<td>' + typeSorted[i][0] + '</td><td>' + fmt(typeSorted[i][1]) + '</td><td>' + ((typeSorted[i][1] / result.totalPrice) * 100).toFixed(1) + '%</td>';
+            typeBody.appendChild(tr);
+        }
+        var totalTypeRow = document.createElement('tr');
+        totalTypeRow.className = 'total-row';
+        totalTypeRow.innerHTML = '<td>TOTAL</td><td>' + fmt(result.totalPrice) + '</td><td>100.0%</td>';
+        typeBody.appendChild(totalTypeRow);
+
+        // Debug panel
+        var debugContent = document.getElementById('debugContent');
+        debugContent.innerHTML = '';
+        for (var i = 0; i < debugLog.length; i++) {
+            var div = document.createElement('div');
+            div.className = 'debug-item';
+            div.innerHTML = '<span class="' + debugLog[i].type + '">' + debugLog[i].msg + '</span>';
+            debugContent.appendChild(div);
+        }
+
+        // Show results section
+        document.getElementById('results').classList.add('show');
+        document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // ========================
+    // FILE I/O HELPERS
+    // ========================
+    function readFileAsArrayBuffer(file) {
+        return new Promise(function(resolve, reject) {
+            var reader = new FileReader();
+            reader.onload = function(e) { resolve(e.target.result); };
+            reader.onerror = function() { reject(new Error('Failed to read file: ' + file.name)); };
+            reader.readAsArrayBuffer(file);
+        });
+    }
+
+    // ========================
+    // ERROR DISPLAY
+    // ========================
+    function showError(msg) {
+        var el = document.getElementById('errorMessage');
+        el.textContent = msg;
+        el.classList.add('show');
+        setTimeout(function() { el.classList.remove('show'); }, 10000);
+    }
+
+    // ========================
+    // READINESS CHECK
+    // ========================
+    function checkReady() {
+        var hasConsolidated = consolidatedData !== null;
+        var hasSov = sovData !== null;
+        var hasRecap = recapLoaded;
+        var hasPrice = parseNum(document.getElementById('sellingPrice').value) > 0;
+        document.getElementById('transformBtn').disabled = !(hasConsolidated && hasSov && hasRecap && hasPrice);
+    }
+
+    // ========================
+    // EVENT HANDLERS
+    // ========================
+
+    // Consolidated file upload
+    document.getElementById('consolidatedFile').addEventListener('change', function(e) {
+        var file = e.target.files[0];
+        if (!file) return;
+        readFileAsArrayBuffer(file).then(function(data) {
+            var wb = XLSX.read(data, { type: 'array' });
+            consolidatedData = parseConsolidatedReport(wb);
+            document.getElementById('consolidatedBox').classList.add('loaded');
+            checkReady();
+        }).catch(function(err) {
+            showError('Error reading Consolidated Report: ' + err.message);
+            consolidatedData = null;
+            document.getElementById('consolidatedBox').classList.remove('loaded');
+        });
+    });
+
+    // SOV file upload
+    document.getElementById('sovFile').addEventListener('change', function(e) {
+        var file = e.target.files[0];
+        if (!file) return;
+        readFileAsArrayBuffer(file).then(function(data) {
+            var wb = XLSX.read(data, { type: 'array' });
+            sovData = parseSovReport(wb);
+            document.getElementById('sovBox').classList.add('loaded');
+            checkReady();
+        }).catch(function(err) {
+            showError('Error reading SOV Report: ' + err.message);
+            sovData = null;
+            document.getElementById('sovBox').classList.remove('loaded');
+        });
+    });
+
+    // Recap file upload (PDF - just mark as loaded, user enters price manually)
+    document.getElementById('recapFile').addEventListener('change', function(e) {
+        var file = e.target.files[0];
+        if (!file) return;
+        recapLoaded = true;
+        document.getElementById('recapBox').classList.add('loaded');
+        checkReady();
+    });
+
+    // Selling price input
+    document.getElementById('sellingPrice').addEventListener('input', checkReady);
+
+    // Transform button
+    document.getElementById('transformBtn').addEventListener('click', function() {
+        var btn = this;
+        var loading = document.getElementById('loading');
+        var errorEl = document.getElementById('errorMessage');
+
+        errorEl.classList.remove('show');
+        document.getElementById('results').classList.remove('show');
+        btn.style.display = 'none';
+        loading.classList.add('show');
+
+        setTimeout(function() {
+            try {
+                var sellingPrice = parseNum(document.getElementById('sellingPrice').value);
+                if (sellingPrice <= 0) throw new Error('Please enter a valid selling price greater than 0.');
+                if (!consolidatedData || !consolidatedData.items || consolidatedData.items.length === 0)
+                    throw new Error('No items found in Consolidated Report. Please check the file format.');
+
+                lastResult = transformBudget(consolidatedData, sellingPrice);
+                renderResults(lastResult, consolidatedData.jobName, sellingPrice);
+
+                loading.classList.remove('show');
+                btn.style.display = 'flex';
+            } catch (err) {
+                loading.classList.remove('show');
+                btn.style.display = 'flex';
+                showError(err.message);
+            }
+        }, 400);
+    });
+
+    // Download button
+    document.getElementById('downloadBtn').addEventListener('click', function() {
+        if (!lastResult) return;
+
+        var csv = generateCSV(lastResult.rows);
+        var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        var jobName = (consolidatedData.jobName || 'budget').replace(/[^a-zA-Z0-9]/g, '_').substring(0, 50);
+        a.href = url;
+        a.download = 'JT_Budget_' + jobName + '_' + new Date().toISOString().slice(0, 10) + '.csv';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    });
+
+    </script>
+</body>
+</html>
