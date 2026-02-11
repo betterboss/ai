@@ -81,11 +81,11 @@ export class ClaudeAPI {
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': this.apiKey,
-        'anthropic-version': '2023-06-01',
+        'anthropic-version': '2025-04-14',
         'anthropic-dangerous-direct-browser-access': 'true',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-5-20250929',
         max_tokens: 4096,
         system: systemPrompt,
         tools: [
@@ -99,10 +99,18 @@ export class ClaudeAPI {
       }),
     });
 
-    const data = await res.json();
+    // Handle non-JSON error responses (404, 500, etc.)
+    const responseText = await res.text();
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch (e) {
+      throw new Error(`API returned ${res.status}: ${responseText.slice(0, 200)}`);
+    }
 
-    if (data.error) {
-      throw new Error(data.error.message || 'Claude API error');
+    if (!res.ok || data.error) {
+      const msg = data.error?.message || data.error?.type || `HTTP ${res.status}`;
+      throw new Error(msg);
     }
 
     // Extract text and citations

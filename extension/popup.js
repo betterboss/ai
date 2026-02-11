@@ -5,6 +5,17 @@ document.addEventListener('DOMContentLoaded', init);
 let isLoading = false;
 
 async function init() {
+  // Verify background service worker is alive
+  try {
+    var ping = await chrome.runtime.sendMessage({ action: 'PING' });
+    console.log('[BetterBoss Popup] Background alive:', ping);
+    if (!ping || !ping.pong) {
+      console.warn('[BetterBoss Popup] Background did not respond to PING');
+    }
+  } catch (e) {
+    console.error('[BetterBoss Popup] Background not reachable:', e.message);
+  }
+
   setupTabs();
   setupChat();
   setupSkills();
