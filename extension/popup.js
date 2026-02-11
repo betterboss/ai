@@ -192,6 +192,7 @@ function renderSkillResult(result) {
 }
 
 function renderDashboard(data) {
+  const fmt = (n) => typeof n === 'number' ? '$' + n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '$0.00';
   const div = document.createElement('div');
   div.className = 'skill-result-card';
   div.innerHTML = `
@@ -204,10 +205,12 @@ function renderDashboard(data) {
       <div style="flex:1;text-align:center;padding:10px;background:rgba(245,158,11,0.1);border-radius:10px;">
         <div style="font-size:24px;font-weight:700;color:#f59e0b;">${data.pendingEstimates}</div>
         <div style="font-size:11px;color:#6b6b8a;">Pending Estimates</div>
+        <div style="font-size:13px;font-weight:600;color:#f59e0b;margin-top:4px;">${fmt(data.pendingEstimatesTotal)}</div>
       </div>
       <div style="flex:1;text-align:center;padding:10px;background:rgba(16,185,129,0.1);border-radius:10px;">
         <div style="font-size:24px;font-weight:700;color:#10b981;">${data.unpaidInvoices}</div>
         <div style="font-size:11px;color:#6b6b8a;">Unpaid Invoices</div>
+        <div style="font-size:13px;font-weight:600;color:#10b981;margin-top:4px;">${fmt(data.unpaidInvoicesTotal)}</div>
       </div>
     </div>
   `;

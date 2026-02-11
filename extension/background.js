@@ -369,10 +369,7 @@ async function executeSkillAction(grantKey, skill, param) {
     switch (skill) {
       case 'SEARCH_PROJECTS': {
         var orgId = await getOrgId(grantKey);
-        var jobsInput = { size: 20, sortBy: [{ field: 'createdAt', order: 'desc' }] };
-        if (param) {
-          jobsInput.where = ['name', '~*', param];
-        }
+        var jobsInput = { size: 50, sortBy: [{ field: 'createdAt', order: 'desc' }] };
         var data = await paveQuery(grantKey, {
           organization: {
             $: { id: orgId },
@@ -389,15 +386,20 @@ async function executeSkillAction(grantKey, skill, param) {
           }
         });
         var items = (data.organization && data.organization.jobs && data.organization.jobs.nodes) || [];
+        // Client-side filter since Pave has no text search operator
+        if (param) {
+          var search = param.toLowerCase();
+          items = items.filter(function(item) {
+            return (item.name && item.name.toLowerCase().indexOf(search) !== -1) ||
+                   (item.number && String(item.number).toLowerCase().indexOf(search) !== -1);
+          });
+        }
         return { type: 'projects', title: 'Projects' + (param ? ' matching "' + param + '"' : ''), data: items, count: items.length, columns: ['name', 'number', 'closedOn'] };
       }
 
       case 'SEARCH_CONTACTS': {
         var orgId = await getOrgId(grantKey);
-        var contactsInput = { size: 20, sortBy: [{ field: 'name' }] };
-        if (param) {
-          contactsInput.where = ['name', '~*', param];
-        }
+        var contactsInput = { size: 50, sortBy: [{ field: 'name' }] };
         var data = await paveQuery(grantKey, {
           organization: {
             $: { id: orgId },
@@ -418,15 +420,20 @@ async function executeSkillAction(grantKey, skill, param) {
           }
         });
         var items = (data.organization && data.organization.contacts && data.organization.contacts.nodes) || [];
+        if (param) {
+          var search = param.toLowerCase();
+          items = items.filter(function(item) {
+            return (item.name && item.name.toLowerCase().indexOf(search) !== -1) ||
+                   (item.title && item.title.toLowerCase().indexOf(search) !== -1) ||
+                   (item.account && item.account.name && item.account.name.toLowerCase().indexOf(search) !== -1);
+          });
+        }
         return { type: 'contacts', title: 'Contacts' + (param ? ' matching "' + param + '"' : ''), data: items, count: items.length, columns: ['name', 'title', 'account.name', 'account.type'] };
       }
 
       case 'SEARCH_CATALOG': {
         var orgId = await getOrgId(grantKey);
-        var costInput = { size: 20, sortBy: [{ field: 'name' }] };
-        if (param) {
-          costInput.where = ['name', '~*', param];
-        }
+        var costInput = { size: 50, sortBy: [{ field: 'name' }] };
         var data = await paveQuery(grantKey, {
           organization: {
             $: { id: orgId },
@@ -444,10 +451,15 @@ async function executeSkillAction(grantKey, skill, param) {
           }
         });
         var items = (data.organization && data.organization.costItems && data.organization.costItems.nodes) || [];
-        // Flatten unit name
         items = items.map(function(item) {
           return Object.assign({}, item, { unitName: (item.unit && item.unit.name) || '' });
         });
+        if (param) {
+          var search = param.toLowerCase();
+          items = items.filter(function(item) {
+            return (item.name && item.name.toLowerCase().indexOf(search) !== -1);
+          });
+        }
         return { type: 'catalog', title: 'Catalog items' + (param ? ' matching "' + param + '"' : ''), data: items, count: items.length, columns: ['name', 'unitPrice', 'unitCost', 'unitName'] };
       }
 
@@ -464,23 +476,38 @@ async function executeSkillAction(grantKey, skill, param) {
             pendingEstimates: {
               _: 'documents',
               $: { where: { and: [['type', '=', 'customerOrder'], ['status', '=', 'pending']] } },
-              nodes: { id: {} }
+              nodes: { id: {}, price: {} },
+              sum: { $: 'price' }
             },
             unpaidInvoices: {
               _: 'documents',
               $: { where: { and: [['type', '=', 'customerInvoice'], ['status', '=', 'pending']] } },
-              nodes: { id: {} }
+              nodes: { id: {}, price: {}, amountPaid: {} },
+              sum: { $: 'price' }
             }
           }
         });
         var org = data.organization || {};
+        var estNodes = (org.pendingEstimates && org.pendingEstimates.nodes) || [];
+        var invNodes = (org.unpaidInvoices && org.unpaidInvoices.nodes) || [];
+        // Calculate totals — use sum if available, else add up nodes
+        var estTotal = (org.pendingEstimates && org.pendingEstimates.sum) || 0;
+        var invTotal = (org.unpaidInvoices && org.unpaidInvoices.sum) || 0;
+        if (!estTotal && estNodes.length > 0) {
+          estTotal = estNodes.reduce(function(sum, n) { return sum + (n.price || 0); }, 0);
+        }
+        if (!invTotal && invNodes.length > 0) {
+          invTotal = invNodes.reduce(function(sum, n) { return sum + (n.price || 0); }, 0);
+        }
         return {
           type: 'dashboard',
           title: 'Dashboard Stats',
           data: {
             activeJobs: (org.activeJobs && org.activeJobs.nodes && org.activeJobs.nodes.length) || 0,
-            pendingEstimates: (org.pendingEstimates && org.pendingEstimates.nodes && org.pendingEstimates.nodes.length) || 0,
-            unpaidInvoices: (org.unpaidInvoices && org.unpaidInvoices.nodes && org.unpaidInvoices.nodes.length) || 0,
+            pendingEstimates: estNodes.length,
+            pendingEstimatesTotal: estTotal,
+            unpaidInvoices: invNodes.length,
+            unpaidInvoicesTotal: invTotal,
           }
         };
       }
