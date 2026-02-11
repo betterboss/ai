@@ -143,7 +143,7 @@ Available skill triggers:
 - [SKILL:GET_ESTIMATES:jobId] — Get estimates for a project
 - [SKILL:GET_INVOICES:jobId] — Get invoices for a project
 - [SKILL:GET_TASKS:jobId] — Get tasks for a project
-- [SKILL:EXPORT_CSV:type] — Export data as CSV (projects, contacts, estimates)
+- [SKILL:EXPORT_CSV:type] — Export data as CSV (projects, contacts, catalog)
 - [SKILL:DASHBOARD] — Get dashboard stats
 - [SKILL:SAVE_MEMORY:key:value] — Save something to memory
 - [SKILL:BOOK_CALL] — Show booking widget
@@ -382,25 +382,41 @@ async function executeSkillAction(grantKey, skill, param) {
     switch (skill) {
       case 'SEARCH_PROJECTS': {
         var orgId = await getOrgId(grantKey);
-        var jobsInput = { size: 50, sortBy: [{ field: 'createdAt', order: 'desc' }] };
-        var data = await paveQuery(grantKey, {
-          organization: {
-            $: { id: orgId },
-            jobs: {
-              $: jobsInput,
-              nodes: {
-                id: {},
-                name: {},
-                number: {},
-                closedOn: {}
-              },
-              nextPage: {}
-            }
-          }
-        });
-        var items = (data.organization && data.organization.jobs && data.organization.jobs.nodes) || [];
-        // Client-side filter since Pave has no text search operator
+        var jobsParams = { size: 50, sortBy: [{ field: 'createdAt', order: 'desc' }] };
+        var serverFiltered = false;
         if (param) {
+          jobsParams.where = ['name', '~', param];
+          serverFiltered = true;
+        }
+        var data;
+        try {
+          data = await paveQuery(grantKey, {
+            organization: {
+              $: { id: orgId },
+              jobs: {
+                $: jobsParams,
+                nodes: { id: {}, name: {}, number: {}, closedOn: {} }
+              }
+            }
+          });
+        } catch (e) {
+          if (!serverFiltered) throw e;
+          // ~ operator failed — fall back to client-side filter
+          console.warn('[BetterBoss] Server search failed, using client-side filter:', e.message);
+          delete jobsParams.where;
+          serverFiltered = false;
+          data = await paveQuery(grantKey, {
+            organization: {
+              $: { id: orgId },
+              jobs: {
+                $: jobsParams,
+                nodes: { id: {}, name: {}, number: {}, closedOn: {} }
+              }
+            }
+          });
+        }
+        var items = (data.organization && data.organization.jobs && data.organization.jobs.nodes) || [];
+        if (param && !serverFiltered) {
           var search = param.toLowerCase();
           items = items.filter(function(item) {
             return (item.name && item.name.toLowerCase().indexOf(search) !== -1) ||
@@ -412,28 +428,50 @@ async function executeSkillAction(grantKey, skill, param) {
 
       case 'SEARCH_CONTACTS': {
         var orgId = await getOrgId(grantKey);
-        var contactsInput = { size: 50, sortBy: [{ field: 'name' }] };
-        var data = await paveQuery(grantKey, {
-          organization: {
-            $: { id: orgId },
-            contacts: {
-              $: contactsInput,
-              nodes: {
-                id: {},
-                name: {},
-                title: {},
-                account: {
+        var contactsParams = { size: 50, sortBy: [{ field: 'name' }] };
+        var serverFiltered = false;
+        if (param) {
+          contactsParams.where = ['name', '~', param];
+          serverFiltered = true;
+        }
+        var data;
+        try {
+          data = await paveQuery(grantKey, {
+            organization: {
+              $: { id: orgId },
+              contacts: {
+                $: contactsParams,
+                nodes: {
                   id: {},
                   name: {},
-                  type: {}
+                  title: {},
+                  account: { id: {}, name: {}, type: {} }
                 }
-              },
-              nextPage: {}
+              }
             }
-          }
-        });
+          });
+        } catch (e) {
+          if (!serverFiltered) throw e;
+          console.warn('[BetterBoss] Server search failed, using client-side filter:', e.message);
+          delete contactsParams.where;
+          serverFiltered = false;
+          data = await paveQuery(grantKey, {
+            organization: {
+              $: { id: orgId },
+              contacts: {
+                $: contactsParams,
+                nodes: {
+                  id: {},
+                  name: {},
+                  title: {},
+                  account: { id: {}, name: {}, type: {} }
+                }
+              }
+            }
+          });
+        }
         var items = (data.organization && data.organization.contacts && data.organization.contacts.nodes) || [];
-        if (param) {
+        if (param && !serverFiltered) {
           var search = param.toLowerCase();
           items = items.filter(function(item) {
             return (item.name && item.name.toLowerCase().indexOf(search) !== -1) ||
@@ -446,28 +484,43 @@ async function executeSkillAction(grantKey, skill, param) {
 
       case 'SEARCH_CATALOG': {
         var orgId = await getOrgId(grantKey);
-        var costInput = { size: 50, sortBy: [{ field: 'name' }] };
-        var data = await paveQuery(grantKey, {
-          organization: {
-            $: { id: orgId },
-            costItems: {
-              $: costInput,
-              nodes: {
-                id: {},
-                name: {},
-                unitPrice: {},
-                unitCost: {},
-                unit: { id: {}, name: {} }
-              },
-              nextPage: {}
+        var costParams = { size: 50, sortBy: [{ field: 'name' }] };
+        var serverFiltered = false;
+        if (param) {
+          costParams.where = ['name', '~', param];
+          serverFiltered = true;
+        }
+        var data;
+        try {
+          data = await paveQuery(grantKey, {
+            organization: {
+              $: { id: orgId },
+              costItems: {
+                $: costParams,
+                nodes: { id: {}, name: {}, unitPrice: {}, unitCost: {}, unit: { id: {}, name: {} } }
+              }
             }
-          }
-        });
+          });
+        } catch (e) {
+          if (!serverFiltered) throw e;
+          console.warn('[BetterBoss] Server search failed, using client-side filter:', e.message);
+          delete costParams.where;
+          serverFiltered = false;
+          data = await paveQuery(grantKey, {
+            organization: {
+              $: { id: orgId },
+              costItems: {
+                $: costParams,
+                nodes: { id: {}, name: {}, unitPrice: {}, unitCost: {}, unit: { id: {}, name: {} } }
+              }
+            }
+          });
+        }
         var items = (data.organization && data.organization.costItems && data.organization.costItems.nodes) || [];
         items = items.map(function(item) {
           return Object.assign({}, item, { unitName: (item.unit && item.unit.name) || '' });
         });
-        if (param) {
+        if (param && !serverFiltered) {
           var search = param.toLowerCase();
           items = items.filter(function(item) {
             return (item.name && item.name.toLowerCase().indexOf(search) !== -1);
@@ -483,40 +536,32 @@ async function executeSkillAction(grantKey, skill, param) {
             $: { id: orgId },
             activeJobs: {
               _: 'jobs',
-              $: { where: ['closedOn', '=', null] },
+              $: { where: ['closedOn', '=', null], size: 200 },
               nodes: { id: {} }
             },
             pendingEstimates: {
               _: 'documents',
-              $: { where: { and: [['type', '=', 'customerOrder'], ['status', '=', 'pending']] } },
-              nodes: { id: {}, price: {} },
-              sum: { $: 'price' }
+              $: { where: { and: [['type', '=', 'customerOrder'], ['status', '=', 'pending']] }, size: 200 },
+              nodes: { id: {}, price: {} }
             },
             unpaidInvoices: {
               _: 'documents',
-              $: { where: { and: [['type', '=', 'customerInvoice'], ['status', '=', 'pending']] } },
-              nodes: { id: {}, price: {}, amountPaid: {} },
-              sum: { $: 'price' }
+              $: { where: { and: [['type', '=', 'customerInvoice'], ['status', '!=', 'paid']] }, size: 200 },
+              nodes: { id: {}, price: {}, amountPaid: {} }
             }
           }
         });
         var org = data.organization || {};
+        var activeNodes = (org.activeJobs && org.activeJobs.nodes) || [];
         var estNodes = (org.pendingEstimates && org.pendingEstimates.nodes) || [];
         var invNodes = (org.unpaidInvoices && org.unpaidInvoices.nodes) || [];
-        // Calculate totals — use sum if available, else add up nodes
-        var estTotal = (org.pendingEstimates && org.pendingEstimates.sum) || 0;
-        var invTotal = (org.unpaidInvoices && org.unpaidInvoices.sum) || 0;
-        if (!estTotal && estNodes.length > 0) {
-          estTotal = estNodes.reduce(function(sum, n) { return sum + (n.price || 0); }, 0);
-        }
-        if (!invTotal && invNodes.length > 0) {
-          invTotal = invNodes.reduce(function(sum, n) { return sum + (n.price || 0); }, 0);
-        }
+        var estTotal = estNodes.reduce(function(sum, n) { return sum + (n.price || 0); }, 0);
+        var invTotal = invNodes.reduce(function(sum, n) { return sum + ((n.price || 0) - (n.amountPaid || 0)); }, 0);
         return {
           type: 'dashboard',
           title: 'Dashboard Stats',
           data: {
-            activeJobs: (org.activeJobs && org.activeJobs.nodes && org.activeJobs.nodes.length) || 0,
+            activeJobs: activeNodes.length,
             pendingEstimates: estNodes.length,
             pendingEstimatesTotal: estTotal,
             unpaidInvoices: invNodes.length,
@@ -539,6 +584,20 @@ async function executeSkillAction(grantKey, skill, param) {
         return { type: 'project', title: 'Project Details', data: data.job || {} };
       }
 
+      case 'GET_CONTACT': {
+        var data = await paveQuery(grantKey, {
+          contact: {
+            $: { id: param },
+            id: {},
+            name: {},
+            title: {},
+            account: { id: {}, name: {}, type: {} }
+          }
+        });
+        var contact = data.contact || {};
+        return { type: 'contact', title: 'Contact: ' + (contact.name || 'Unknown'), data: contact };
+      }
+
       case 'GET_ESTIMATES': {
         var data = await paveQuery(grantKey, {
           job: {
@@ -546,7 +605,7 @@ async function executeSkillAction(grantKey, skill, param) {
             id: {},
             name: {},
             documents: {
-              $: { where: { and: [['type', '=', 'customerOrder'], ['status', '=', 'pending']] }, size: 20 },
+              $: { where: ['type', '=', 'customerOrder'], size: 50, sortBy: [{ field: 'createdAt', order: 'desc' }] },
               nodes: {
                 id: {},
                 name: {},
@@ -559,7 +618,7 @@ async function executeSkillAction(grantKey, skill, param) {
           }
         });
         var items = (data.job && data.job.documents && data.job.documents.nodes) || [];
-        return { type: 'estimates', title: 'Estimates', data: items, count: items.length, columns: ['name', 'number', 'status', 'price', 'cost'] };
+        return { type: 'estimates', title: 'Estimates for ' + ((data.job && data.job.name) || 'project'), data: items, count: items.length, columns: ['name', 'number', 'status', 'price', 'cost'] };
       }
 
       case 'GET_INVOICES': {
@@ -569,7 +628,7 @@ async function executeSkillAction(grantKey, skill, param) {
             id: {},
             name: {},
             documents: {
-              $: { where: ['type', '=', 'customerInvoice'], size: 20 },
+              $: { where: ['type', '=', 'customerInvoice'], size: 50, sortBy: [{ field: 'createdAt', order: 'desc' }] },
               nodes: {
                 id: {},
                 name: {},
@@ -582,7 +641,7 @@ async function executeSkillAction(grantKey, skill, param) {
           }
         });
         var items = (data.job && data.job.documents && data.job.documents.nodes) || [];
-        return { type: 'invoices', title: 'Invoices', data: items, count: items.length, columns: ['name', 'number', 'status', 'price', 'amountPaid'] };
+        return { type: 'invoices', title: 'Invoices for ' + ((data.job && data.job.name) || 'project'), data: items, count: items.length, columns: ['name', 'number', 'status', 'price', 'amountPaid'] };
       }
 
       case 'GET_TASKS': {
