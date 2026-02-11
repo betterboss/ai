@@ -268,30 +268,37 @@ async function claudeFetch(apiKey, body) {
 }
 
 // ═══════════════════════════════════════════════════════════
-// JOBTREAD API
+// JOBTREAD API (Pave Query Language)
+// Docs: https://api.jobtread.com — POST to /pave with grantKey
 // ═══════════════════════════════════════════════════════════
 
-const JT_API = 'https://api.jobtread.com/graphql';
+const JT_API = 'https://api.jobtread.com/pave';
 
-async function jtQuery(token, gql, variables) {
-  console.log('[BetterBoss] jtQuery → ' + JT_API, 'query:', gql.slice(0, 80) + '...');
+// Cached org ID (cleared when settings change)
+var cachedOrgId = null;
+
+// Core Pave query function — grantKey goes INSIDE the query body
+async function paveQuery(grantKey, query) {
+  var fullQuery = Object.assign({ $: { grantKey: grantKey } }, query);
+  console.log('[BetterBoss] paveQuery →', JT_API, JSON.stringify(fullQuery).slice(0, 300));
+
   var res;
   try {
     res = await fetch(JT_API, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-      body: JSON.stringify({ query: gql, variables: variables || {} }),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: fullQuery }),
     });
   } catch (networkErr) {
     console.error('[BetterBoss] JT network error:', networkErr);
-    throw new Error('Could not reach JobTread API (' + JT_API + '). Network error: ' + networkErr.message);
+    throw new Error('Could not reach JobTread API. Network error: ' + networkErr.message);
   }
 
   var text = await res.text();
-  console.log('[BetterBoss] JT response:', res.status, 'length:', text.length, 'body:', text.slice(0, 300));
+  console.log('[BetterBoss] JT response:', res.status, 'body:', text.slice(0, 500));
 
   if (res.status === 401 || res.status === 403) {
-    throw new Error('JobTread API authentication failed (HTTP ' + res.status + '). Check your API token in Settings → JobTread API Token.');
+    throw new Error('JobTread authentication failed (HTTP ' + res.status + '). Check your grant key in Settings.');
   }
 
   if (res.status === 404) {
@@ -300,75 +307,281 @@ async function jtQuery(token, gql, variables) {
 
   var json;
   try { json = JSON.parse(text); } catch (e) {
-    throw new Error('JobTread API returned non-JSON (HTTP ' + res.status + '). This usually means the API URL is wrong. Response: ' + text.slice(0, 150));
+    throw new Error('JobTread returned invalid response (HTTP ' + res.status + '): ' + text.slice(0, 200));
   }
 
   if (!res.ok) {
-    throw new Error('JobTread API error ' + res.status + ': ' + (json.message || json.error || JSON.stringify(json).slice(0, 200)));
+    throw new Error('JobTread error ' + res.status + ': ' + JSON.stringify(json).slice(0, 200));
   }
 
   if (json.errors) {
-    var errMsgs = json.errors.map(function(e) { return e.message; }).join(', ');
-    console.error('[BetterBoss] JT GraphQL errors:', errMsgs);
+    var errMsgs = json.errors.map(function(e) { return e.message || JSON.stringify(e); }).join(', ');
+    console.error('[BetterBoss] JT Pave errors:', errMsgs);
     throw new Error('JobTread query error: ' + errMsgs);
   }
 
-  return json.data;
+  return json;
 }
 
+// Get organization ID from the current grant
+async function getOrgId(grantKey) {
+  if (cachedOrgId) return cachedOrgId;
+
+  var data = await paveQuery(grantKey, {
+    currentGrant: {
+      user: {
+        memberships: {
+          nodes: {
+            organization: {
+              id: {},
+              name: {}
+            }
+          }
+        }
+      }
+    }
+  });
+
+  var memberships = data.currentGrant && data.currentGrant.user && data.currentGrant.user.memberships;
+  var nodes = memberships && memberships.nodes;
+  if (nodes && nodes.length > 0 && nodes[0].organization) {
+    cachedOrgId = nodes[0].organization.id;
+    console.log('[BetterBoss] Org ID resolved:', cachedOrgId, '(' + nodes[0].organization.name + ')');
+    return cachedOrgId;
+  }
+
+  throw new Error('Could not find your organization. Make sure your grant key has access.');
+}
+
+// Clear cached org ID when settings change
+var _origSaveSettings = Memory.saveSettings;
+Memory.saveSettings = async function(settings) {
+  cachedOrgId = null;
+  return _origSaveSettings.call(Memory, settings);
+};
+
 // ═══════════════════════════════════════════════════════════
-// SKILLS
+// SKILLS (Pave queries)
 // ═══════════════════════════════════════════════════════════
 
-async function executeSkillAction(token, skill, param) {
+async function executeSkillAction(grantKey, skill, param) {
   try {
     switch (skill) {
       case 'SEARCH_PROJECTS': {
-        const data = await jtQuery(token, 'query($limit:Int,$search:String){jobs(first:$limit,filter:{search:$search}){edges{node{id name status number createdAt customer{id name} totalPrice totalCost}}}}', { limit: 20, search: param || undefined });
-        const items = (data.jobs && data.jobs.edges || []).map(function(e) { return e.node; });
-        return { type: 'projects', title: 'Projects matching "' + param + '"', data: items, count: items.length, columns: ['name', 'number', 'status', 'customer.name', 'totalPrice'] };
+        var orgId = await getOrgId(grantKey);
+        var jobsInput = { size: 20, sortBy: [{ field: 'createdAt', order: 'desc' }] };
+        if (param) {
+          jobsInput.where = ['name', '~*', param];
+        }
+        var data = await paveQuery(grantKey, {
+          organization: {
+            $: { id: orgId },
+            jobs: {
+              $: jobsInput,
+              nodes: {
+                id: {},
+                name: {},
+                number: {},
+                closedOn: {}
+              },
+              nextPage: {}
+            }
+          }
+        });
+        var items = (data.organization && data.organization.jobs && data.organization.jobs.nodes) || [];
+        return { type: 'projects', title: 'Projects' + (param ? ' matching "' + param + '"' : ''), data: items, count: items.length, columns: ['name', 'number', 'closedOn'] };
       }
+
       case 'SEARCH_CONTACTS': {
-        const data = await jtQuery(token, 'query($limit:Int,$search:String){contacts(first:$limit,filter:{search:$search}){edges{node{id name email phone company type}}}}', { limit: 20, search: param || undefined });
-        const items = (data.contacts && data.contacts.edges || []).map(function(e) { return e.node; });
-        return { type: 'contacts', title: 'Contacts matching "' + param + '"', data: items, count: items.length, columns: ['name', 'email', 'phone', 'company', 'type'] };
+        var orgId = await getOrgId(grantKey);
+        var contactsInput = { size: 20, sortBy: [{ field: 'name' }] };
+        if (param) {
+          contactsInput.where = ['name', '~*', param];
+        }
+        var data = await paveQuery(grantKey, {
+          organization: {
+            $: { id: orgId },
+            contacts: {
+              $: contactsInput,
+              nodes: {
+                id: {},
+                name: {},
+                title: {},
+                account: {
+                  id: {},
+                  name: {},
+                  type: {}
+                }
+              },
+              nextPage: {}
+            }
+          }
+        });
+        var items = (data.organization && data.organization.contacts && data.organization.contacts.nodes) || [];
+        return { type: 'contacts', title: 'Contacts' + (param ? ' matching "' + param + '"' : ''), data: items, count: items.length, columns: ['name', 'title', 'account.name', 'account.type'] };
       }
+
       case 'SEARCH_CATALOG': {
-        const data = await jtQuery(token, 'query($limit:Int,$search:String){catalogItems(first:$limit,filter:{search:$search}){edges{node{id name description unitPrice unitCost unit category}}}}', { limit: 20, search: param || undefined });
-        const items = (data.catalogItems && data.catalogItems.edges || []).map(function(e) { return e.node; });
-        return { type: 'catalog', title: 'Catalog items matching "' + param + '"', data: items, count: items.length, columns: ['name', 'unitPrice', 'unitCost', 'unit', 'category'] };
+        var orgId = await getOrgId(grantKey);
+        var costInput = { size: 20, sortBy: [{ field: 'name' }] };
+        if (param) {
+          costInput.where = ['name', '~*', param];
+        }
+        var data = await paveQuery(grantKey, {
+          organization: {
+            $: { id: orgId },
+            costItems: {
+              $: costInput,
+              nodes: {
+                id: {},
+                name: {},
+                unitPrice: {},
+                unitCost: {},
+                unit: { id: {}, name: {} }
+              },
+              nextPage: {}
+            }
+          }
+        });
+        var items = (data.organization && data.organization.costItems && data.organization.costItems.nodes) || [];
+        // Flatten unit name
+        items = items.map(function(item) {
+          return Object.assign({}, item, { unitName: (item.unit && item.unit.name) || '' });
+        });
+        return { type: 'catalog', title: 'Catalog items' + (param ? ' matching "' + param + '"' : ''), data: items, count: items.length, columns: ['name', 'unitPrice', 'unitCost', 'unitName'] };
       }
+
       case 'DASHBOARD': {
-        const data = await jtQuery(token, 'query{activeJobs:jobs(filter:{status:ACTIVE}){totalCount} pendingEstimates:estimates(filter:{status:PENDING}){totalCount} unpaidInvoices:invoices(filter:{status:SENT}){totalCount}}');
-        return { type: 'dashboard', title: 'Dashboard Stats', data: { activeJobs: (data.activeJobs && data.activeJobs.totalCount) || 0, pendingEstimates: (data.pendingEstimates && data.pendingEstimates.totalCount) || 0, unpaidInvoices: (data.unpaidInvoices && data.unpaidInvoices.totalCount) || 0 } };
+        var orgId = await getOrgId(grantKey);
+        var data = await paveQuery(grantKey, {
+          organization: {
+            $: { id: orgId },
+            activeJobs: {
+              _: 'jobs',
+              $: { where: ['closedOn', '=', null] },
+              nodes: { id: {} }
+            },
+            pendingEstimates: {
+              _: 'documents',
+              $: { where: { and: [['type', '=', 'customerOrder'], ['status', '=', 'pending']] } },
+              nodes: { id: {} }
+            },
+            unpaidInvoices: {
+              _: 'documents',
+              $: { where: { and: [['type', '=', 'customerInvoice'], ['status', '=', 'pending']] } },
+              nodes: { id: {} }
+            }
+          }
+        });
+        var org = data.organization || {};
+        return {
+          type: 'dashboard',
+          title: 'Dashboard Stats',
+          data: {
+            activeJobs: (org.activeJobs && org.activeJobs.nodes && org.activeJobs.nodes.length) || 0,
+            pendingEstimates: (org.pendingEstimates && org.pendingEstimates.nodes && org.pendingEstimates.nodes.length) || 0,
+            unpaidInvoices: (org.unpaidInvoices && org.unpaidInvoices.nodes && org.unpaidInvoices.nodes.length) || 0,
+          }
+        };
       }
+
+      case 'GET_PROJECT': {
+        var data = await paveQuery(grantKey, {
+          job: {
+            $: { id: param },
+            id: {},
+            name: {},
+            number: {},
+            closedOn: {},
+            description: {}
+          }
+        });
+        return { type: 'project', title: 'Project Details', data: data.job || {} };
+      }
+
       case 'GET_ESTIMATES': {
-        const data = await jtQuery(token, 'query($jobId:ID!,$limit:Int){estimates(first:$limit,filter:{jobId:$jobId}){edges{node{id name status totalPrice totalCost createdAt}}}}', { jobId: param, limit: 10 });
-        const items = (data.estimates && data.estimates.edges || []).map(function(e) { return e.node; });
-        return { type: 'estimates', title: 'Estimates', data: items, count: items.length, columns: ['name', 'status', 'totalPrice', 'totalCost', 'createdAt'] };
+        var data = await paveQuery(grantKey, {
+          job: {
+            $: { id: param },
+            id: {},
+            name: {},
+            documents: {
+              $: { where: { and: [['type', '=', 'customerOrder'], ['status', '=', 'pending']] }, size: 20 },
+              nodes: {
+                id: {},
+                name: {},
+                number: {},
+                status: {},
+                price: {},
+                cost: {}
+              }
+            }
+          }
+        });
+        var items = (data.job && data.job.documents && data.job.documents.nodes) || [];
+        return { type: 'estimates', title: 'Estimates', data: items, count: items.length, columns: ['name', 'number', 'status', 'price', 'cost'] };
       }
+
       case 'GET_INVOICES': {
-        const data = await jtQuery(token, 'query($jobId:ID!,$limit:Int){invoices(first:$limit,filter:{jobId:$jobId}){edges{node{id number status totalAmount paidAmount dueDate}}}}', { jobId: param, limit: 10 });
-        const items = (data.invoices && data.invoices.edges || []).map(function(e) { return e.node; });
-        return { type: 'invoices', title: 'Invoices', data: items, count: items.length, columns: ['number', 'status', 'totalAmount', 'paidAmount', 'dueDate'] };
+        var data = await paveQuery(grantKey, {
+          job: {
+            $: { id: param },
+            id: {},
+            name: {},
+            documents: {
+              $: { where: ['type', '=', 'customerInvoice'], size: 20 },
+              nodes: {
+                id: {},
+                name: {},
+                number: {},
+                status: {},
+                price: {},
+                amountPaid: {}
+              }
+            }
+          }
+        });
+        var items = (data.job && data.job.documents && data.job.documents.nodes) || [];
+        return { type: 'invoices', title: 'Invoices', data: items, count: items.length, columns: ['name', 'number', 'status', 'price', 'amountPaid'] };
       }
+
       case 'GET_TASKS': {
-        const data = await jtQuery(token, 'query($jobId:ID!,$limit:Int){tasks(first:$limit,filter:{jobId:$jobId}){edges{node{id name status dueDate assignee{id name}}}}}', { jobId: param, limit: 50 });
-        const items = (data.tasks && data.tasks.edges || []).map(function(e) { return e.node; });
-        return { type: 'tasks', title: 'Tasks', data: items, count: items.length, columns: ['name', 'status', 'dueDate', 'assignee.name'] };
+        var data = await paveQuery(grantKey, {
+          job: {
+            $: { id: param },
+            id: {},
+            name: {},
+            tasks: {
+              $: { size: 50, sortBy: [{ field: 'startDate' }] },
+              nodes: {
+                id: {},
+                name: {},
+                progress: {},
+                startDate: {},
+                endDate: {}
+              }
+            }
+          }
+        });
+        var items = (data.job && data.job.tasks && data.job.tasks.nodes) || [];
+        return { type: 'tasks', title: 'Tasks', data: items, count: items.length, columns: ['name', 'progress', 'startDate', 'endDate'] };
       }
+
       case 'EXPORT_CSV': {
-        const result = await executeSkillAction(token, 'SEARCH_' + (param || 'projects').toUpperCase(), '');
+        var result = await executeSkillAction(grantKey, 'SEARCH_' + (param || 'projects').toUpperCase(), '');
         result.exportAs = 'csv';
         return result;
       }
+
       case 'SAVE_MEMORY': {
-        const idx = (param || '').indexOf(':');
+        var idx = (param || '').indexOf(':');
         if (idx === -1) return { error: 'Invalid format. Use key:value' };
         return { type: 'memory_save', key: param.slice(0, idx).trim(), value: param.slice(idx + 1).trim() };
       }
+
       case 'BOOK_CALL':
         return { type: 'booking', url: 'https://cal.com/mybetterboss.ai/jobtread-free-growth-audit-call' };
+
       default:
         return { error: 'Unknown skill: ' + skill };
     }
@@ -481,69 +694,46 @@ async function handleMessage(message) {
 async function testJtConnection() {
   const settings = await Memory.getSettings();
   if (!settings.jobtreadToken) {
-    return { error: 'No JobTread API token saved. Paste your token above and click Save first.' };
+    return { error: 'No grant key saved. Paste your JobTread grant key above and click Save first.' };
   }
 
-  const token = settings.jobtreadToken;
-  console.log('[BetterBoss] Testing JT connection, token length:', token.length, 'first 8 chars:', token.slice(0, 8) + '...');
+  const grantKey = settings.jobtreadToken;
+  console.log('[BetterBoss] Testing JT connection, key length:', grantKey.length, 'first 8 chars:', grantKey.slice(0, 8) + '...');
 
-  // Try a simple introspection-like query to test auth
-  var res;
   try {
-    res = await fetch(JT_API, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + token,
-      },
-      body: JSON.stringify({ query: '{ __typename }' }),
-    });
-  } catch (networkErr) {
-    console.error('[BetterBoss] Test connection network error:', networkErr);
-    return { error: 'Network error reaching ' + JT_API + ': ' + networkErr.message };
-  }
-
-  var text = await res.text();
-  console.log('[BetterBoss] Test connection response:', res.status, text.slice(0, 500));
-
-  if (res.status === 401 || res.status === 403) {
-    return { error: 'Authentication failed (HTTP ' + res.status + '). Your token may be invalid or expired. Double-check it in JobTread → Settings → API.' };
-  }
-
-  if (res.status === 404) {
-    return { error: 'Endpoint not found (HTTP 404). The API URL may be wrong: ' + JT_API };
-  }
-
-  if (!res.ok) {
-    return { error: 'HTTP ' + res.status + ': ' + text.slice(0, 200) };
-  }
-
-  var json;
-  try {
-    json = JSON.parse(text);
-  } catch (e) {
-    return { error: 'API returned non-JSON. Response: ' + text.slice(0, 200) };
-  }
-
-  if (json.errors && json.errors.length > 0) {
-    // Errors on __typename is okay — it means auth worked but query is restricted
-    // Try a real query instead
-    console.log('[BetterBoss] __typename had errors, trying real query...');
-    try {
-      var data = await jtQuery(token, 'query { jobs(first: 1) { edges { node { id } } } }');
-      return { info: 'Token is valid! Found jobs data.' };
-    } catch (realErr) {
-      // If this also fails, check if it's an auth error vs query error
-      if (realErr.message.includes('authentication') || realErr.message.includes('401') || realErr.message.includes('403')) {
-        return { error: realErr.message };
+    // Use the currentGrant query to verify auth and get org info
+    var data = await paveQuery(grantKey, {
+      currentGrant: {
+        id: {},
+        user: {
+          id: {},
+          name: {},
+          memberships: {
+            nodes: {
+              organization: {
+                id: {},
+                name: {}
+              }
+            }
+          }
+        }
       }
-      // Query structure error means auth worked but query shape is wrong
-      return { error: 'Token may be valid but API queries are failing: ' + realErr.message + '. This could mean the JobTread API schema has changed.' };
-    }
-  }
+    });
 
-  // Success
-  return { info: 'Token is valid! API connection working.' };
+    var user = data.currentGrant && data.currentGrant.user;
+    var memberships = user && user.memberships && user.memberships.nodes;
+    var orgName = (memberships && memberships.length > 0 && memberships[0].organization && memberships[0].organization.name) || 'Unknown';
+
+    // Cache the org ID
+    if (memberships && memberships.length > 0 && memberships[0].organization) {
+      cachedOrgId = memberships[0].organization.id;
+    }
+
+    return { info: 'Connected as ' + (user.name || 'Unknown') + ' — Org: ' + orgName };
+  } catch (err) {
+    console.error('[BetterBoss] Test connection error:', err);
+    return { error: err.message };
+  }
 }
 
 // ═══════════════════════════════════════════════════════════
