@@ -136,22 +136,6 @@ function appendMessage(role, text, sources, skillResults) {
     }
   }
 
-  // Check for [BOOK_CALL] in raw text
-  if (role === 'assistant' && text.includes('[BOOK_CALL]')) {
-    const bookDiv = document.createElement('div');
-    bookDiv.className = 'booking-inline';
-    const bookBtn = document.createElement('button');
-    bookBtn.className = 'booking-inline-btn';
-    bookBtn.textContent = '📞 Book Your FREE Growth Audit Call';
-    bookBtn.addEventListener('click', function() { window.open('https://cal.com/mybetterboss.ai/jobtread-free-growth-audit-call', '_blank'); });
-    const bookNote = document.createElement('span');
-    bookNote.className = 'booking-inline-note';
-    bookNote.textContent = 'Free 30-min call with Nick Peret — no obligation';
-    bookDiv.appendChild(bookBtn);
-    bookDiv.appendChild(bookNote);
-    container.appendChild(bookDiv);
-  }
-
   container.scrollTop = container.scrollHeight;
 }
 
@@ -626,7 +610,7 @@ async function testConnection() {
 // ── Markdown Renderer ───────────────────────────────────────
 
 function renderMarkdown(text) {
-  const clean = text.replace(/\[BOOK_CALL\]/g, '').replace(/\[SKILL:[^\]]+\]/g, '');
+  const clean = text.replace(/\[SKILL:[^\]]+\]/g, '');
 
   const codeBlocks = [];
   let processed = clean.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) => {
