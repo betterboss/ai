@@ -245,14 +245,19 @@ async function claudeFetch(apiKey, body) {
   var responseText = '';
   var status = 0;
   try {
+    var headers = {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true',
+    };
+    // Add beta header when web search tool is present
+    if (body.tools && body.tools.some(function(t) { return t.type === 'web_search_20250305'; })) {
+      headers['anthropic-beta'] = 'web-search-2025-03-05';
+    }
     var res = await fetch(CLAUDE_API_URL, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2025-04-14',
-        'anthropic-dangerous-direct-browser-access': 'true',
-      },
+      headers: headers,
       body: JSON.stringify(body),
     });
     status = res.status;
