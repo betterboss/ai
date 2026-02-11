@@ -70,7 +70,7 @@ async function sendChat(textOverride) {
     if (response.error) {
       appendMessage('assistant', `⚠️ ${response.error}`);
     } else {
-      appendMessage('assistant', response.text, response.sources, response.skillResults);
+      appendMessage('assistant', response.text, response.sources, response.skillResults, response.usage);
     }
   } catch (err) {
     hideTyping();
@@ -81,7 +81,7 @@ async function sendChat(textOverride) {
   document.getElementById('btnSend').disabled = false;
 }
 
-function appendMessage(role, text, sources, skillResults) {
+function appendMessage(role, text, sources, skillResults, usage) {
   sources = sources || [];
   skillResults = skillResults || [];
   const container = document.getElementById('chatMessages');
@@ -132,8 +132,27 @@ function appendMessage(role, text, sources, skillResults) {
       if (result.error) continue;
 
       var card = renderInsightResult(result);
-      if (card) container.appendChild(card);
+      if (card) {
+        if (result.warnings && result.warnings.length > 0) {
+          var warnDiv = document.createElement('div');
+          warnDiv.className = 'insight-truncation';
+          warnDiv.textContent = '\u26A0\uFE0F ' + result.warnings.join(' \u00B7 ');
+          card.appendChild(warnDiv);
+        }
+        container.appendChild(card);
+      }
     }
+  }
+
+  // Token usage & estimated cost
+  if (usage && role === 'assistant') {
+    var usageDiv = document.createElement('div');
+    usageDiv.className = 'msg-usage';
+    var inTok = usage.input_tokens || 0;
+    var outTok = usage.output_tokens || 0;
+    var cost = (inTok * 3 / 1000000) + (outTok * 15 / 1000000);
+    usageDiv.textContent = inTok.toLocaleString() + ' in / ' + outTok.toLocaleString() + ' out \u00B7 ~$' + cost.toFixed(4);
+    container.appendChild(usageDiv);
   }
 
   container.scrollTop = container.scrollHeight;

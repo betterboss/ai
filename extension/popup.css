@@ -607,3 +607,24 @@ header {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(93,71,250,0.3); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(93,71,250,0.5); }
+
+/* ── Usage / Cost Display ────────────────────────────── */
+
+.msg-usage {
+  margin-left: 42px;
+  font-size: 10px;
+  color: #4a4a6a;
+  margin-top: 2px;
+  padding: 0 2px;
+}
+
+/* ── Truncation Warnings ─────────────────────────────── */
+
+.insight-truncation {
+  font-size: 11px;
+  color: #f59e0b;
+  padding: 6px 10px;
+  background: rgba(245,158,11,0.08);
+  border-radius: 6px;
+  margin-top: 8px;
+}

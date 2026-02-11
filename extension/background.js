@@ -170,41 +170,51 @@ Include these tags to pull live data. Always explain what you're doing first.
 ## CURRENT PAGE CONTEXT
 {PAGE_CONTEXT}`;
 
+// Session-level web search capability cache (null=unknown, true/false=tested)
+var webSearchSupported = null;
+
 async function callClaude(apiKey, messages, memory, pageContext) {
   const system = SYSTEM_PROMPT
     .replace('{MEMORY_CONTEXT}', memory || 'No saved memory yet.')
     .replace('{PAGE_CONTEXT}', pageContext || 'Not on a JobTread page');
 
-  // Try with web search first, fall back to plain if it fails
-  var body = {
+  var baseBody = {
     model: 'claude-sonnet-4-5-20250929',
     max_tokens: 4096,
     system: system,
     messages: messages,
-    tools: [
-      {
-        type: 'web_search_20250305',
-        name: 'web_search',
-        max_uses: 3,
-      }
-    ],
   };
 
-  var data = await claudeFetch(apiKey, body);
+  var data;
 
-  // If first call fails, retry without web search tools
-  if (data._fetchError) {
-    console.warn('[BetterBoss] First attempt failed: ' + data._fetchError + ', retrying without web search');
-    var fallbackBody = {
+  if (webSearchSupported !== false) {
+    // Try with web search (first call tests capability, subsequent calls use cache)
+    var wsBody = {
       model: 'claude-sonnet-4-5-20250929',
       max_tokens: 4096,
       system: system,
       messages: messages,
+      tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 3 }],
     };
-    data = await claudeFetch(apiKey, fallbackBody);
+    data = await claudeFetch(apiKey, wsBody);
     if (data._fetchError) {
-      throw new Error(data._fetchError);
+      console.warn('[BetterBoss] Web search call failed: ' + data._fetchError);
+      if (webSearchSupported === null) {
+        webSearchSupported = false;
+        console.log('[BetterBoss] Web search disabled for this session');
+      }
+      // Fall back to plain call
+      data = await claudeFetch(apiKey, baseBody);
+      if (data._fetchError) throw new Error(data._fetchError);
+    } else if (webSearchSupported === null) {
+      webSearchSupported = true;
+      console.log('[BetterBoss] Web search confirmed working');
     }
+  } else {
+    // Web search known unsupported — skip the extra API call
+    console.log('[BetterBoss] Skipping web search (cached: unsupported)');
+    data = await claudeFetch(apiKey, baseBody);
+    if (data._fetchError) throw new Error(data._fetchError);
   }
 
   // Extract text and citations
@@ -300,50 +310,72 @@ const JT_API = 'https://api.jobtread.com/pave';
 // Cached org ID (cleared when settings change)
 var cachedOrgId = null;
 
-// Core Pave query function — grantKey goes INSIDE the query body
+// Core Pave query function with retry — grantKey goes INSIDE the query body
 async function paveQuery(grantKey, query) {
-  var fullQuery = Object.assign({ $: { grantKey: grantKey } }, query);
-  console.log('[BetterBoss] paveQuery →', JT_API, JSON.stringify(fullQuery).slice(0, 300));
+  var MAX_RETRIES = 2;
+  var lastError;
 
-  var res;
-  try {
-    res = await fetch(JT_API, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: fullQuery }),
-    });
-  } catch (networkErr) {
-    console.error('[BetterBoss] JT network error:', networkErr);
-    throw new Error('Could not reach JobTread API. Network error: ' + networkErr.message);
+  for (var attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    if (attempt > 0) {
+      var delay = Math.pow(2, attempt) * 1000;
+      console.log('[BetterBoss] Pave retry #' + attempt + ' in ' + delay + 'ms');
+      await new Promise(function(r) { setTimeout(r, delay); });
+    }
+
+    var fullQuery = Object.assign({ $: { grantKey: grantKey } }, query);
+    if (attempt === 0) console.log('[BetterBoss] paveQuery →', JT_API, JSON.stringify(fullQuery).slice(0, 300));
+
+    var res;
+    try {
+      res = await fetch(JT_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: fullQuery }),
+      });
+    } catch (networkErr) {
+      console.error('[BetterBoss] JT network error:', networkErr);
+      lastError = new Error('Could not reach JobTread API. Network error: ' + networkErr.message);
+      continue; // retry
+    }
+
+    var text = await res.text();
+    console.log('[BetterBoss] JT response:', res.status, 'body:', text.slice(0, 500));
+
+    // Non-retryable auth errors
+    if (res.status === 401 || res.status === 403) {
+      throw new Error('JobTread authentication failed (HTTP ' + res.status + '). Check your grant key in Settings.');
+    }
+    if (res.status === 404) {
+      throw new Error('JobTread API endpoint not found (HTTP 404). URL: ' + JT_API);
+    }
+
+    var json;
+    try { json = JSON.parse(text); } catch (e) {
+      throw new Error('JobTread returned invalid response (HTTP ' + res.status + '): ' + text.slice(0, 200));
+    }
+
+    // Retryable server errors (5xx)
+    if (res.status >= 500) {
+      lastError = new Error('JobTread server error (HTTP ' + res.status + ')');
+      continue; // retry
+    }
+
+    // Other non-OK client errors (don't retry)
+    if (!res.ok) {
+      throw new Error('JobTread error ' + res.status + ': ' + JSON.stringify(json).slice(0, 200));
+    }
+
+    // Query-level errors (valid response, don't retry)
+    if (json.errors) {
+      var errMsgs = json.errors.map(function(e) { return e.message || JSON.stringify(e); }).join(', ');
+      console.error('[BetterBoss] JT Pave errors:', errMsgs);
+      throw new Error('JobTread query error: ' + errMsgs);
+    }
+
+    return json; // success
   }
 
-  var text = await res.text();
-  console.log('[BetterBoss] JT response:', res.status, 'body:', text.slice(0, 500));
-
-  if (res.status === 401 || res.status === 403) {
-    throw new Error('JobTread authentication failed (HTTP ' + res.status + '). Check your grant key in Settings.');
-  }
-
-  if (res.status === 404) {
-    throw new Error('JobTread API endpoint not found (HTTP 404). URL: ' + JT_API);
-  }
-
-  var json;
-  try { json = JSON.parse(text); } catch (e) {
-    throw new Error('JobTread returned invalid response (HTTP ' + res.status + '): ' + text.slice(0, 200));
-  }
-
-  if (!res.ok) {
-    throw new Error('JobTread error ' + res.status + ': ' + JSON.stringify(json).slice(0, 200));
-  }
-
-  if (json.errors) {
-    var errMsgs = json.errors.map(function(e) { return e.message || JSON.stringify(e); }).join(', ');
-    console.error('[BetterBoss] JT Pave errors:', errMsgs);
-    throw new Error('JobTread query error: ' + errMsgs);
-  }
-
-  return json;
+  throw lastError; // all retries exhausted
 }
 
 // Get organization ID from the current grant
@@ -422,10 +454,14 @@ async function executeSkillAction(grantKey, skill, param) {
         var taskCompletion = taskCount > 0 ? Math.round((completedTasks / taskCount) * 100) : 0;
         var today = new Date().toISOString().slice(0, 10);
         var overdueTasks = tasks.filter(function(t) { return t.endDate && t.endDate < today && t.progress < 1; });
+        var warnings = [];
+        if (docs.length >= 100) warnings.push('Documents capped at 100 — totals may be understated');
+        if (tasks.length >= 100) warnings.push('Tasks capped at 100 — progress may be incomplete');
         return {
           type: 'project_analysis',
           title: (job.name || 'Project') + (job.number ? ' #' + job.number : ''),
           jobId: param,
+          warnings: warnings,
           data: {
             status: job.closedOn ? 'Closed' : 'Active',
             estimatedRevenue: estimatedRevenue,
@@ -487,9 +523,14 @@ async function executeSkillAction(grantKey, skill, param) {
           else if (days > 30) { aging.over30 += owed; agingCounts.over30++; }
           else { aging.current += owed; agingCounts.current++; }
         });
+        var warnings = [];
+        if (activeJobs.length >= 100) warnings.push('Active jobs capped at 100 — count may be higher');
+        if (pendingEst.length >= 100) warnings.push('Pending estimates capped at 100 — pipeline value may be higher');
+        if (unpaidInv.length >= 100) warnings.push('Unpaid invoices capped at 100 — AR totals may be higher');
         return {
           type: 'business_overview',
           title: 'Business Overview',
+          warnings: warnings,
           data: {
             activeJobs: activeJobs.length,
             pendingEstimates: pendingEst.length,
@@ -544,9 +585,13 @@ async function executeSkillAction(grantKey, skill, param) {
         });
         oldestInvoices.sort(function(a, b) { return b.days - a.days; });
         var totalAR = buckets.reduce(function(s, b) { return s + b.total; }, 0);
+        var warnings = [];
+        if (pendingEst.length >= 100) warnings.push('Pending estimates capped at 100 — pipeline may be higher');
+        if (unpaidInv.length >= 100) warnings.push('Unpaid invoices capped at 100 — AR totals may be higher');
         return {
           type: 'cash_flow',
           title: 'Cash Flow',
+          warnings: warnings,
           data: {
             pipelineValue: pipelineValue,
             pendingEstimateCount: pendingEst.length,
@@ -652,10 +697,13 @@ async function executeSkillAction(grantKey, skill, param) {
             console.warn('[BetterBoss] Could not fetch jobs for account:', e.message);
           }
         }
+        var warnings = [];
+        if (jobs.length >= 50) warnings.push('Job history capped at 50 — client may have more');
         return {
           type: 'client_history',
           title: 'Client: ' + (contact.name || 'Unknown'),
           contactId: param,
+          warnings: warnings,
           data: {
             name: contact.name,
             title: contact.title,
