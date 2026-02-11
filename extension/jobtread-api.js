@@ -17,7 +17,18 @@ export class JobTreadAPI {
       },
       body: JSON.stringify({ query: gql, variables }),
     });
-    const json = await res.json();
+
+    const text = await res.text();
+    let json;
+    try {
+      json = JSON.parse(text);
+    } catch (e) {
+      throw new Error(`JobTread API returned ${res.status}: ${text.slice(0, 200)}`);
+    }
+
+    if (!res.ok) {
+      throw new Error(`JobTread API error ${res.status}: ${json.message || text.slice(0, 200)}`);
+    }
     if (json.errors) throw new Error(json.errors.map(e => e.message).join(', '));
     return json.data;
   }
