@@ -271,21 +271,32 @@ async function claudeFetch(apiKey, body) {
 // JOBTREAD API
 // ═══════════════════════════════════════════════════════════
 
-const JT_API = 'https://api.jobtread.com/graphql';
+const JT_API = 'https://api.jobtread.com/';
 
 async function jtQuery(token, gql, variables) {
-  const res = await fetch(JT_API, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-    body: JSON.stringify({ query: gql, variables: variables || {} }),
-  });
-  const text = await res.text();
-  let json;
-  try { json = JSON.parse(text); } catch (e) {
-    throw new Error('JobTread API returned ' + res.status + ': ' + text.slice(0, 200));
+  var res;
+  try {
+    res = await fetch(JT_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ query: gql, variables: variables || {} }),
+    });
+  } catch (networkErr) {
+    throw new Error('Could not reach JobTread API: ' + networkErr.message);
   }
-  if (!res.ok) throw new Error('JobTread API error ' + res.status + ': ' + (json.message || text.slice(0, 200)));
-  if (json.errors) throw new Error(json.errors.map(function(e) { return e.message; }).join(', '));
+
+  var text = await res.text();
+  console.log('[BetterBoss] JobTread API response:', res.status, text.slice(0, 200));
+
+  var json;
+  try { json = JSON.parse(text); } catch (e) {
+    if (res.status === 401 || res.status === 403) {
+      throw new Error('JobTread API authentication failed (HTTP ' + res.status + '). Check your API token in Settings.');
+    }
+    throw new Error('JobTread API returned HTTP ' + res.status + '. Response: ' + text.slice(0, 100));
+  }
+  if (!res.ok) throw new Error('JobTread API error ' + res.status + ': ' + (json.message || JSON.stringify(json).slice(0, 200)));
+  if (json.errors) throw new Error('JobTread query error: ' + json.errors.map(function(e) { return e.message; }).join(', '));
   return json.data;
 }
 
