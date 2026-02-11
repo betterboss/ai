@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Mr. Better Boss - JobTread AI Assistant",
-  "version": "1.0.0",
+  "version": "1.0.3",
   "description": "AI-powered JobTread assistant with memory, skills, file generation, and deep JobTread integration. Built by Better Boss.",
   "permissions": [
     "storage",

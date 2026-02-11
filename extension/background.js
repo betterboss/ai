@@ -1,5 +1,5 @@
-// Background service worker — SELF-CONTAINED, no imports
-// All modules inlined for Chrome extension service worker compatibility
+// Background service worker — v3 SELF-CONTAINED, no imports
+const BG_VERSION = 'v3-' + Date.now();
 
 // ═══════════════════════════════════════════════════════════
 // MEMORY
@@ -170,46 +170,38 @@ async function callClaude(apiKey, messages, memory, pageContext) {
     .replace('{MEMORY_CONTEXT}', memory || 'No saved memory yet.')
     .replace('{PAGE_CONTEXT}', pageContext || 'Not on a JobTread page');
 
-  const res = await fetch(CLAUDE_API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2025-04-14',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-5-20250929',
-      max_tokens: 4096,
-      system: system,
-      tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 3 }],
-      messages: messages,
-    }),
-  });
+  // Try with web search first, fall back to plain if it fails
+  var body = {
+    model: 'claude-sonnet-4-5-20250929',
+    max_tokens: 4096,
+    system: system,
+    messages: messages,
+  };
 
-  // Safely parse response
-  const responseText = await res.text();
-  let data;
-  try {
-    data = JSON.parse(responseText);
-  } catch (e) {
-    throw new Error('API returned ' + res.status + ': ' + responseText.slice(0, 300));
-  }
+  var data = await claudeFetch(apiKey, body);
 
-  if (!res.ok || data.error) {
-    throw new Error(data.error ? (data.error.message || data.error.type || JSON.stringify(data.error)) : 'HTTP ' + res.status);
+  // If first call fails, retry without tools
+  if (data._fetchError) {
+    console.warn('[BetterBoss] First attempt failed: ' + data._fetchError + ', retrying without web search');
+    data = await claudeFetch(apiKey, body);
+    if (data._fetchError) {
+      throw new Error(data._fetchError);
+    }
   }
 
   // Extract text and citations
-  let text = '';
-  const sources = [];
-  const seenUrls = {};
+  var text = '';
+  var sources = [];
+  var seenUrls = {};
 
-  for (const block of (data.content || [])) {
+  var contentBlocks = data.content || [];
+  for (var i = 0; i < contentBlocks.length; i++) {
+    var block = contentBlocks[i];
     if (block.type === 'text') {
       text += block.text;
       if (block.citations) {
-        for (const cite of block.citations) {
+        for (var j = 0; j < block.citations.length; j++) {
+          var cite = block.citations[j];
           if (cite.url && !seenUrls[cite.url]) {
             seenUrls[cite.url] = true;
             sources.push({ url: cite.url, title: cite.title || '' });
@@ -219,16 +211,60 @@ async function callClaude(apiKey, messages, memory, pageContext) {
     }
   }
 
+  if (!text) {
+    text = 'I received a response but couldn\'t extract the text. Raw response type: ' + (contentBlocks.length > 0 ? contentBlocks.map(function(b) { return b.type; }).join(', ') : 'empty');
+  }
+
   // Extract and clean skill triggers
-  const skillTriggers = [];
-  const re = /\[SKILL:([A-Z_]+)(?::([^\]]*))?\]/g;
-  let m;
+  var skillTriggers = [];
+  var re = /\[SKILL:([A-Z_]+)(?::([^\]]*))?\]/g;
+  var m;
   while ((m = re.exec(text)) !== null) {
     skillTriggers.push({ skill: m[1], param: m[2] || '' });
   }
-  const cleanText = text.replace(/\[SKILL:[^\]]+\]/g, '');
+  var cleanText = text.replace(/\[SKILL:[^\]]+\]/g, '');
 
   return { text: cleanText, sources: sources, skillTriggers: skillTriggers, usage: data.usage };
+}
+
+// Low-level fetch to Claude API with safe response handling
+async function claudeFetch(apiKey, body) {
+  var responseText = '';
+  var status = 0;
+  try {
+    var res = await fetch(CLAUDE_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify(body),
+    });
+    status = res.status;
+    responseText = await res.text();
+    console.log('[BetterBoss] Claude API status:', status, 'response length:', responseText.length);
+  } catch (fetchErr) {
+    return { _fetchError: 'Network error: ' + fetchErr.message };
+  }
+
+  var data;
+  try {
+    data = JSON.parse(responseText);
+  } catch (parseErr) {
+    return { _fetchError: 'API returned non-JSON (HTTP ' + status + '): ' + responseText.slice(0, 200) };
+  }
+
+  if (status < 200 || status >= 300 || data.error) {
+    var errMsg = 'HTTP ' + status;
+    if (data.error) {
+      errMsg = data.error.message || data.error.type || JSON.stringify(data.error);
+    }
+    return { _fetchError: errMsg };
+  }
+
+  return data;
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -360,6 +396,9 @@ chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
 
 async function handleMessage(message) {
   switch (message.action) {
+    case 'PING':
+      return { pong: true, version: BG_VERSION };
+
     case 'CHAT':
       return handleChat(message.text);
 
@@ -410,44 +449,52 @@ async function handleMessage(message) {
 // ═══════════════════════════════════════════════════════════
 
 async function handleChat(text) {
-  const settings = await Memory.getSettings();
+  try {
+    const settings = await Memory.getSettings();
 
-  if (!settings.claudeApiKey) {
-    return { error: 'Please set your Claude API key in Settings (⚙️ tab).' };
-  }
-
-  // Save user message
-  await Memory.saveMessage('user', text);
-
-  // Build context
-  const memoryContext = await Memory.getMemoryContext();
-  const pageContext = await Memory.getPageContext();
-  const apiMessages = await Memory.getApiMessages();
-
-  // Call Claude
-  const response = await callClaude(settings.claudeApiKey, apiMessages, memoryContext, pageContext);
-
-  // Execute any skill triggers
-  const skillResults = [];
-  if (response.skillTriggers.length > 0 && settings.jobtreadToken) {
-    for (const trigger of response.skillTriggers) {
-      const result = await executeSkillAction(settings.jobtreadToken, trigger.skill, trigger.param);
-
-      if (result.type === 'memory_save') {
-        await Memory.saveNote(result.key, result.value);
-        result.success = true;
-      }
-      if (result.exportAs === 'csv') {
-        result.downloadInfo = downloadCSV(result);
-      }
-      skillResults.push(result);
+    if (!settings.claudeApiKey) {
+      return { error: 'Please set your Claude API key in Settings (⚙️ tab).' };
     }
+
+    // Save user message
+    await Memory.saveMessage('user', text);
+
+    // Build context
+    const memoryContext = await Memory.getMemoryContext();
+    const pageContext = await Memory.getPageContext();
+    const apiMessages = await Memory.getApiMessages();
+
+    console.log('[BetterBoss ' + BG_VERSION + '] Calling Claude with', apiMessages.length, 'messages');
+
+    // Call Claude
+    const response = await callClaude(settings.claudeApiKey, apiMessages, memoryContext, pageContext);
+
+    console.log('[BetterBoss] Claude response received, text length:', response.text.length);
+
+    // Execute any skill triggers
+    const skillResults = [];
+    if (response.skillTriggers.length > 0 && settings.jobtreadToken) {
+      for (const trigger of response.skillTriggers) {
+        const result = await executeSkillAction(settings.jobtreadToken, trigger.skill, trigger.param);
+        if (result.type === 'memory_save') {
+          await Memory.saveNote(result.key, result.value);
+          result.success = true;
+        }
+        if (result.exportAs === 'csv') {
+          result.downloadInfo = downloadCSV(result);
+        }
+        skillResults.push(result);
+      }
+    }
+
+    // Save assistant message
+    await Memory.saveMessage('assistant', response.text, response.sources, skillResults);
+
+    return { text: response.text, sources: response.sources, skillResults: skillResults, usage: response.usage };
+  } catch (err) {
+    console.error('[BetterBoss ' + BG_VERSION + '] handleChat error:', err);
+    return { error: 'Chat error: ' + (err.message || String(err)) };
   }
-
-  // Save assistant message
-  await Memory.saveMessage('assistant', response.text, response.sources, skillResults);
-
-  return { text: response.text, sources: response.sources, skillResults: skillResults, usage: response.usage };
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -498,4 +545,4 @@ chrome.tabs.onActivated.addListener(function(activeInfo) {
   });
 });
 
-console.log('Mr. Better Boss ⚡ service worker loaded');
+console.log('Mr. Better Boss ⚡ service worker loaded — ' + BG_VERSION);
