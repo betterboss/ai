@@ -108,56 +108,61 @@ const Memory = {
 
 const CLAUDE_API_URL = 'https://api.anthropic.com/v1/messages';
 
-const SYSTEM_PROMPT = `You are Mr. Better Boss ⚡, an AI assistant embedded in a Chrome extension for JobTread users. You are created by Better Boss (better-boss.ai), a JobTread Certified Implementation Partner.
+const SYSTEM_PROMPT = `You are Mr. Better Boss ⚡, an AI business analyst for JobTread users. You live inside a Chrome extension and help contractors understand their business data, spot problems, and make smarter decisions. You are created by Better Boss (better-boss.ai), a JobTread Certified Implementation Partner.
 
-## CAPABILITIES
-You have direct access to the user's JobTread account through the extension. You can:
-- Search and view projects, contacts, estimates, invoices, tasks, and catalog items
-- Generate CSV files and reports from JobTread data
-- Read the current JobTread page the user is viewing
-- Remember context across conversations using persistent memory
-- Execute skills (predefined actions) to help users work faster
+## YOUR ROLE
+You are an insights layer on top of JobTread — not a replacement for it. You DON'T duplicate JT's native search, navigation, or data entry. Instead, you ANALYZE data and surface actionable insights a contractor can't easily get from the JT interface alone.
 
-## PERSONALITY
-- Confident, direct, practical — a trusted mentor in the trenches
-- Contractor-friendly language (change orders, scope creep, punch lists, GC, subs, etc.)
-- Concise but thorough — no fluff, just actionable guidance
-- Encouraging but real
+## WHAT YOU DO
+- Analyze project profitability (estimated revenue vs cost, margins, invoiced vs collected)
+- Surface cash flow insights (who owes money, aging invoices, pending pipeline)
+- Check project health (task progress, overdue items, budget status)
+- Review client history (past projects, payment patterns)
+- Give a business-wide health check (active jobs, pipeline, AR aging)
+- Answer JT questions with real data — not generic advice
 
-## RESPONSE FORMATTING
-- Use ## and ### headings to organize longer responses
-- Use numbered lists for step-by-step instructions
-- Use bullet lists for features, options, or comparisons
-- Use **bold** for key terms and numbers
-- Include relevant [links](url) when referencing tools, docs, or resources
-- Keep paragraphs short (2-3 sentences max)
+## PAGE CONTEXT
+When the user is on a specific JT page, you know the page type and any IDs. Use them:
+- On a job page → offer to analyze that project (you have the Job ID)
+- On a contact page → offer to review that client's history (you have the Contact ID)
+- On the dashboard → offer a business health check
 
 ## SKILL TRIGGERS
-When the user's request maps to a skill, include the skill trigger tag in your response.
-Available skill triggers:
-- [SKILL:SEARCH_PROJECTS:query] — Search projects
-- [SKILL:SEARCH_CONTACTS:query] — Search contacts
-- [SKILL:SEARCH_CATALOG:query] — Search catalog items
-- [SKILL:GET_PROJECT:id] — Get project details
-- [SKILL:GET_CONTACT:id] — Get contact details
-- [SKILL:GET_ESTIMATES:jobId] — Get estimates for a project
-- [SKILL:GET_INVOICES:jobId] — Get invoices for a project
-- [SKILL:GET_TASKS:jobId] — Get tasks for a project
-- [SKILL:EXPORT_CSV:type] — Export data as CSV (projects, contacts, catalog)
-- [SKILL:DASHBOARD] — Get dashboard stats
-- [SKILL:SAVE_MEMORY:key:value] — Save something to memory
-- [SKILL:BOOK_CALL] — Show booking widget
+Include these tags to pull live data. Always explain what you're doing first.
+- [SKILL:ANALYZE_PROJECT:jobId] — Full project analysis (profitability, invoicing, tasks)
+- [SKILL:BUSINESS_OVERVIEW] — Company-wide KPIs, pipeline, AR aging
+- [SKILL:CASH_FLOW] — Aging report, oldest invoices, pipeline value
+- [SKILL:FIND_PROJECT:query] — Find a project by name (returns clickable links)
+- [SKILL:FIND_CONTACT:query] — Find a contact by name
+- [SKILL:CLIENT_HISTORY:contactId] — Client's job history and status
+- [SKILL:SAVE_MEMORY:key:value] — Remember something for later
+- [SKILL:BOOK_CALL] — Offer Better Boss consulting
 
-When you trigger a skill, explain what you're doing. Example: "Let me pull up those projects for you. [SKILL:SEARCH_PROJECTS:kitchen remodel]"
+## ANALYSIS GUIDELINES
+- Lead with the insight, then show the data that supports it
+- Always show dollar amounts formatted ($XX,XXX)
+- Calculate margins and flag if below 15% (typical contractor target: 15-25%)
+- Flag overdue invoices, stalled tasks, and low-margin projects in red
+- Give specific action items: "Follow up with Smith Construction on Invoice #1042"
+- When something looks bad, say so — but offer a path forward
+
+## PERSONALITY
+- Confident, direct, practical — a business advisor who knows construction
+- Contractor-friendly language (change orders, scope creep, punch lists, GC, subs)
+- Lead with what matters, skip the fluff
+- When user needs hands-on implementation help, include [SKILL:BOOK_CALL]
+
+## FORMATTING
+- Use ## headings for sections
+- Use **bold** for key numbers and alerts
+- Keep paragraphs to 2-3 sentences
+- Use bullet lists for action items
 
 ## JOBTREAD KNOWLEDGE
-- Better Boss is a JobTread Certified Implementation Partner founded by Nick Peret
-- Full implementation in 30 days guaranteed
-- Uses n8n for automations (NOT native JobTread automations)
-- Key metrics: 20+ hrs/wk saved, 19-42% close rate improvement, 3x faster estimates
+- Better Boss: JT Certified Implementation Partner, founded by Nick Peret
+- 30-day implementation guaranteed, uses n8n for automations
+- Key results: 20+ hrs/wk saved, 19-42% close rate improvement, 3x faster estimates
 - Integrations: QuickBooks Online, CompanyCam, EagleView, Stripe, Acorn
-- Primary CTA: better-boss.ai/audit for FREE Growth Audit Call
-- When user needs hands-on help, include [SKILL:BOOK_CALL]
 
 ## MEMORY CONTEXT
 {MEMORY_CONTEXT}
@@ -385,156 +390,63 @@ Memory.saveSettings = async function(settings) {
 async function executeSkillAction(grantKey, skill, param) {
   try {
     switch (skill) {
-      case 'SEARCH_PROJECTS': {
-        var orgId = await getOrgId(grantKey);
-        var jobsParams = { size: 50, sortBy: [{ field: 'createdAt', order: 'desc' }] };
-        var serverFiltered = false;
-        if (param) {
-          jobsParams.where = ['name', '~', param];
-          serverFiltered = true;
-        }
-        var data;
-        try {
-          data = await paveQuery(grantKey, {
-            organization: {
-              $: { id: orgId },
-              jobs: {
-                $: jobsParams,
-                nodes: { id: {}, name: {}, number: {}, closedOn: {} }
-              }
-            }
-          });
-        } catch (e) {
-          if (!serverFiltered) throw e;
-          // ~ operator failed — fall back to client-side filter
-          console.warn('[BetterBoss] Server search failed, using client-side filter:', e.message);
-          delete jobsParams.where;
-          serverFiltered = false;
-          data = await paveQuery(grantKey, {
-            organization: {
-              $: { id: orgId },
-              jobs: {
-                $: jobsParams,
-                nodes: { id: {}, name: {}, number: {}, closedOn: {} }
-              }
-            }
-          });
-        }
-        var items = (data.organization && data.organization.jobs && data.organization.jobs.nodes) || [];
-        if (param && !serverFiltered) {
-          var search = param.toLowerCase();
-          items = items.filter(function(item) {
-            return (item.name && item.name.toLowerCase().indexOf(search) !== -1) ||
-                   (item.number && String(item.number).toLowerCase().indexOf(search) !== -1);
-          });
-        }
-        return { type: 'projects', title: 'Projects' + (param ? ' matching "' + param + '"' : ''), data: items, count: items.length, columns: ['name', 'number', 'closedOn'] };
-      }
 
-      case 'SEARCH_CONTACTS': {
-        var orgId = await getOrgId(grantKey);
-        var contactsParams = { size: 50, sortBy: [{ field: 'name' }] };
-        var serverFiltered = false;
-        if (param) {
-          contactsParams.where = ['name', '~', param];
-          serverFiltered = true;
-        }
-        var data;
-        try {
-          data = await paveQuery(grantKey, {
-            organization: {
-              $: { id: orgId },
-              contacts: {
-                $: contactsParams,
-                nodes: {
-                  id: {},
-                  name: {},
-                  title: {},
-                  account: { id: {}, name: {}, type: {} }
-                }
-              }
+      case 'ANALYZE_PROJECT': {
+        var data = await paveQuery(grantKey, {
+          job: {
+            $: { id: param },
+            id: {}, name: {}, number: {}, closedOn: {},
+            documents: {
+              $: { size: 100 },
+              nodes: { id: {}, type: {}, status: {}, price: {}, cost: {}, amountPaid: {}, name: {}, number: {} }
+            },
+            tasks: {
+              $: { size: 100, sortBy: [{ field: 'startDate' }] },
+              nodes: { id: {}, name: {}, progress: {}, startDate: {}, endDate: {} }
             }
-          });
-        } catch (e) {
-          if (!serverFiltered) throw e;
-          console.warn('[BetterBoss] Server search failed, using client-side filter:', e.message);
-          delete contactsParams.where;
-          serverFiltered = false;
-          data = await paveQuery(grantKey, {
-            organization: {
-              $: { id: orgId },
-              contacts: {
-                $: contactsParams,
-                nodes: {
-                  id: {},
-                  name: {},
-                  title: {},
-                  account: { id: {}, name: {}, type: {} }
-                }
-              }
-            }
-          });
-        }
-        var items = (data.organization && data.organization.contacts && data.organization.contacts.nodes) || [];
-        if (param && !serverFiltered) {
-          var search = param.toLowerCase();
-          items = items.filter(function(item) {
-            return (item.name && item.name.toLowerCase().indexOf(search) !== -1) ||
-                   (item.title && item.title.toLowerCase().indexOf(search) !== -1) ||
-                   (item.account && item.account.name && item.account.name.toLowerCase().indexOf(search) !== -1);
-          });
-        }
-        return { type: 'contacts', title: 'Contacts' + (param ? ' matching "' + param + '"' : ''), data: items, count: items.length, columns: ['name', 'title', 'account.name', 'account.type'] };
-      }
-
-      case 'SEARCH_CATALOG': {
-        var orgId = await getOrgId(grantKey);
-        var costParams = { size: 50, sortBy: [{ field: 'name' }] };
-        var serverFiltered = false;
-        if (param) {
-          costParams.where = ['name', '~', param];
-          serverFiltered = true;
-        }
-        var data;
-        try {
-          data = await paveQuery(grantKey, {
-            organization: {
-              $: { id: orgId },
-              costItems: {
-                $: costParams,
-                nodes: { id: {}, name: {}, unitPrice: {}, unitCost: {}, unit: { id: {}, name: {} } }
-              }
-            }
-          });
-        } catch (e) {
-          if (!serverFiltered) throw e;
-          console.warn('[BetterBoss] Server search failed, using client-side filter:', e.message);
-          delete costParams.where;
-          serverFiltered = false;
-          data = await paveQuery(grantKey, {
-            organization: {
-              $: { id: orgId },
-              costItems: {
-                $: costParams,
-                nodes: { id: {}, name: {}, unitPrice: {}, unitCost: {}, unit: { id: {}, name: {} } }
-              }
-            }
-          });
-        }
-        var items = (data.organization && data.organization.costItems && data.organization.costItems.nodes) || [];
-        items = items.map(function(item) {
-          return Object.assign({}, item, { unitName: (item.unit && item.unit.name) || '' });
+          }
         });
-        if (param && !serverFiltered) {
-          var search = param.toLowerCase();
-          items = items.filter(function(item) {
-            return (item.name && item.name.toLowerCase().indexOf(search) !== -1);
-          });
-        }
-        return { type: 'catalog', title: 'Catalog items' + (param ? ' matching "' + param + '"' : ''), data: items, count: items.length, columns: ['name', 'unitPrice', 'unitCost', 'unitName'] };
+        var job = data.job || {};
+        var docs = (job.documents && job.documents.nodes) || [];
+        var tasks = (job.tasks && job.tasks.nodes) || [];
+        var estimates = docs.filter(function(d) { return d.type === 'customerOrder'; });
+        var invoices = docs.filter(function(d) { return d.type === 'customerInvoice'; });
+        var approved = estimates.filter(function(e) { return e.status === 'approved' || e.status === 'accepted'; });
+        var estimatedRevenue = approved.reduce(function(s, e) { return s + (e.price || 0); }, 0);
+        var estimatedCost = approved.reduce(function(s, e) { return s + (e.cost || 0); }, 0);
+        var expectedMargin = estimatedRevenue > 0 ? ((estimatedRevenue - estimatedCost) / estimatedRevenue * 100) : 0;
+        var totalInvoiced = invoices.reduce(function(s, i) { return s + (i.price || 0); }, 0);
+        var totalCollected = invoices.reduce(function(s, i) { return s + (i.amountPaid || 0); }, 0);
+        var taskCount = tasks.length;
+        var completedTasks = tasks.filter(function(t) { return t.progress >= 1; }).length;
+        var taskCompletion = taskCount > 0 ? Math.round((completedTasks / taskCount) * 100) : 0;
+        var today = new Date().toISOString().slice(0, 10);
+        var overdueTasks = tasks.filter(function(t) { return t.endDate && t.endDate < today && t.progress < 1; });
+        return {
+          type: 'project_analysis',
+          title: (job.name || 'Project') + (job.number ? ' #' + job.number : ''),
+          jobId: param,
+          data: {
+            status: job.closedOn ? 'Closed' : 'Active',
+            estimatedRevenue: estimatedRevenue,
+            estimatedCost: estimatedCost,
+            expectedMargin: expectedMargin,
+            totalInvoiced: totalInvoiced,
+            totalCollected: totalCollected,
+            outstandingBalance: totalInvoiced - totalCollected,
+            remainingToInvoice: estimatedRevenue - totalInvoiced,
+            pendingEstimates: estimates.filter(function(e) { return e.status === 'pending'; }).length,
+            pendingEstimateValue: estimates.filter(function(e) { return e.status === 'pending'; }).reduce(function(s, e) { return s + (e.price || 0); }, 0),
+            taskCount: taskCount,
+            completedTasks: completedTasks,
+            taskCompletion: taskCompletion,
+            overdueTasks: overdueTasks.length,
+            overdueTaskNames: overdueTasks.slice(0, 3).map(function(t) { return t.name; }),
+          }
+        };
       }
 
-      case 'DASHBOARD': {
+      case 'BUSINESS_OVERVIEW': {
         var orgId = await getOrgId(grantKey);
         var data = await paveQuery(grantKey, {
           organization: {
@@ -552,129 +464,211 @@ async function executeSkillAction(grantKey, skill, param) {
             unpaidInvoices: {
               _: 'documents',
               $: { where: { and: [['type', '=', 'customerInvoice'], ['status', '!=', 'paid']] }, size: 100 },
-              nodes: { id: {}, price: {}, amountPaid: {} }
+              nodes: { id: {}, price: {}, amountPaid: {}, createdAt: {} }
             }
           }
         });
         var org = data.organization || {};
-        var activeNodes = (org.activeJobs && org.activeJobs.nodes) || [];
-        var estNodes = (org.pendingEstimates && org.pendingEstimates.nodes) || [];
-        var invNodes = (org.unpaidInvoices && org.unpaidInvoices.nodes) || [];
-        var estTotal = estNodes.reduce(function(sum, n) { return sum + (n.price || 0); }, 0);
-        var invTotal = invNodes.reduce(function(sum, n) { return sum + ((n.price || 0) - (n.amountPaid || 0)); }, 0);
+        var activeJobs = (org.activeJobs && org.activeJobs.nodes) || [];
+        var pendingEst = (org.pendingEstimates && org.pendingEstimates.nodes) || [];
+        var unpaidInv = (org.unpaidInvoices && org.unpaidInvoices.nodes) || [];
+        var pipelineValue = pendingEst.reduce(function(s, e) { return s + (e.price || 0); }, 0);
+        var now = Date.now();
+        var aging = { current: 0, over30: 0, over60: 0, over90: 0 };
+        var agingCounts = { current: 0, over30: 0, over60: 0, over90: 0 };
+        var totalAR = 0;
+        unpaidInv.forEach(function(inv) {
+          var owed = (inv.price || 0) - (inv.amountPaid || 0);
+          if (owed <= 0) return;
+          totalAR += owed;
+          var days = inv.createdAt ? Math.floor((now - new Date(inv.createdAt).getTime()) / 86400000) : 0;
+          if (days > 90) { aging.over90 += owed; agingCounts.over90++; }
+          else if (days > 60) { aging.over60 += owed; agingCounts.over60++; }
+          else if (days > 30) { aging.over30 += owed; agingCounts.over30++; }
+          else { aging.current += owed; agingCounts.current++; }
+        });
         return {
-          type: 'dashboard',
-          title: 'Dashboard Stats',
+          type: 'business_overview',
+          title: 'Business Overview',
           data: {
-            activeJobs: activeNodes.length,
-            pendingEstimates: estNodes.length,
-            pendingEstimatesTotal: estTotal,
-            unpaidInvoices: invNodes.length,
-            unpaidInvoicesTotal: invTotal,
+            activeJobs: activeJobs.length,
+            pendingEstimates: pendingEst.length,
+            pipelineValue: pipelineValue,
+            unpaidInvoices: unpaidInv.length,
+            totalAR: totalAR,
+            aging: aging,
+            agingCounts: agingCounts,
           }
         };
       }
 
-      case 'GET_PROJECT': {
+      case 'CASH_FLOW': {
+        var orgId = await getOrgId(grantKey);
         var data = await paveQuery(grantKey, {
-          job: {
-            $: { id: param },
-            id: {},
-            name: {},
-            number: {},
-            closedOn: {},
-            description: {}
+          organization: {
+            $: { id: orgId },
+            pendingEstimates: {
+              _: 'documents',
+              $: { where: { and: [['type', '=', 'customerOrder'], ['status', '=', 'pending']] }, size: 100 },
+              nodes: { id: {}, price: {}, name: {} }
+            },
+            unpaidInvoices: {
+              _: 'documents',
+              $: { where: { and: [['type', '=', 'customerInvoice'], ['status', '!=', 'paid']] }, size: 100 },
+              nodes: { id: {}, price: {}, amountPaid: {}, name: {}, number: {}, createdAt: {} }
+            }
           }
         });
-        return { type: 'project', title: 'Project Details', data: data.job || {} };
+        var org = data.organization || {};
+        var pendingEst = (org.pendingEstimates && org.pendingEstimates.nodes) || [];
+        var unpaidInv = (org.unpaidInvoices && org.unpaidInvoices.nodes) || [];
+        var pipelineValue = pendingEst.reduce(function(s, e) { return s + (e.price || 0); }, 0);
+        var now = Date.now();
+        var buckets = [
+          { label: '0-30 days', min: 0, max: 30, total: 0, count: 0 },
+          { label: '31-60 days', min: 31, max: 60, total: 0, count: 0 },
+          { label: '61-90 days', min: 61, max: 90, total: 0, count: 0 },
+          { label: '90+ days', min: 91, max: Infinity, total: 0, count: 0 },
+        ];
+        var oldestInvoices = [];
+        unpaidInv.forEach(function(inv) {
+          var owed = (inv.price || 0) - (inv.amountPaid || 0);
+          if (owed <= 0) return;
+          var days = inv.createdAt ? Math.floor((now - new Date(inv.createdAt).getTime()) / 86400000) : 0;
+          for (var i = 0; i < buckets.length; i++) {
+            if (days >= buckets[i].min && (days <= buckets[i].max || buckets[i].max === Infinity)) {
+              buckets[i].total += owed; buckets[i].count++; break;
+            }
+          }
+          if (days > 60) oldestInvoices.push({ name: inv.name || inv.number || 'Invoice', owed: owed, days: days });
+        });
+        oldestInvoices.sort(function(a, b) { return b.days - a.days; });
+        var totalAR = buckets.reduce(function(s, b) { return s + b.total; }, 0);
+        return {
+          type: 'cash_flow',
+          title: 'Cash Flow',
+          data: {
+            pipelineValue: pipelineValue,
+            pendingEstimateCount: pendingEst.length,
+            totalAR: totalAR,
+            unpaidInvoiceCount: unpaidInv.length,
+            buckets: buckets,
+            oldestInvoices: oldestInvoices.slice(0, 5),
+          }
+        };
       }
 
-      case 'GET_CONTACT': {
-        var data = await paveQuery(grantKey, {
+      case 'FIND_PROJECT': {
+        var orgId = await getOrgId(grantKey);
+        var params = { size: 20, sortBy: [{ field: 'createdAt', order: 'desc' }] };
+        if (param) params.where = ['name', '~', param];
+        var data;
+        try {
+          data = await paveQuery(grantKey, {
+            organization: { $: { id: orgId }, jobs: { $: params, nodes: { id: {}, name: {}, number: {}, closedOn: {} } } }
+          });
+        } catch (e) {
+          delete params.where;
+          data = await paveQuery(grantKey, {
+            organization: { $: { id: orgId }, jobs: { $: params, nodes: { id: {}, name: {}, number: {}, closedOn: {} } } }
+          });
+          if (param) {
+            var search = param.toLowerCase();
+            data.organization.jobs.nodes = (data.organization.jobs.nodes || []).filter(function(j) {
+              return (j.name && j.name.toLowerCase().indexOf(search) !== -1) || (j.number && String(j.number).toLowerCase().indexOf(search) !== -1);
+            });
+          }
+        }
+        var items = (data.organization && data.organization.jobs && data.organization.jobs.nodes) || [];
+        return {
+          type: 'search_results',
+          title: 'Projects' + (param ? ' matching "' + param + '"' : ''),
+          entityType: 'project',
+          data: items.map(function(j) {
+            return { id: j.id, name: j.name, number: j.number, status: j.closedOn ? 'Closed' : 'Active', url: 'https://app.jobtread.com/jobs/' + j.id };
+          }),
+          count: items.length,
+        };
+      }
+
+      case 'FIND_CONTACT': {
+        var orgId = await getOrgId(grantKey);
+        var params = { size: 20, sortBy: [{ field: 'name' }] };
+        if (param) params.where = ['name', '~', param];
+        var data;
+        try {
+          data = await paveQuery(grantKey, {
+            organization: { $: { id: orgId }, contacts: { $: params, nodes: { id: {}, name: {}, title: {}, account: { id: {}, name: {}, type: {} } } } }
+          });
+        } catch (e) {
+          delete params.where;
+          data = await paveQuery(grantKey, {
+            organization: { $: { id: orgId }, contacts: { $: params, nodes: { id: {}, name: {}, title: {}, account: { id: {}, name: {}, type: {} } } } }
+          });
+          if (param) {
+            var search = param.toLowerCase();
+            data.organization.contacts.nodes = (data.organization.contacts.nodes || []).filter(function(c) {
+              return (c.name && c.name.toLowerCase().indexOf(search) !== -1);
+            });
+          }
+        }
+        var items = (data.organization && data.organization.contacts && data.organization.contacts.nodes) || [];
+        return {
+          type: 'search_results',
+          title: 'Contacts' + (param ? ' matching "' + param + '"' : ''),
+          entityType: 'contact',
+          data: items.map(function(c) {
+            return { id: c.id, name: c.name + (c.title ? ' — ' + c.title : ''), subtitle: c.account ? c.account.name : '', status: c.account ? c.account.type : '', url: 'https://app.jobtread.com/contacts/' + c.id };
+          }),
+          count: items.length,
+        };
+      }
+
+      case 'CLIENT_HISTORY': {
+        var contactData = await paveQuery(grantKey, {
           contact: {
             $: { id: param },
-            id: {},
-            name: {},
-            title: {},
+            id: {}, name: {}, title: {},
             account: { id: {}, name: {}, type: {} }
           }
         });
-        var contact = data.contact || {};
-        return { type: 'contact', title: 'Contact: ' + (contact.name || 'Unknown'), data: contact };
-      }
-
-      case 'GET_ESTIMATES': {
-        var data = await paveQuery(grantKey, {
-          job: {
-            $: { id: param },
-            id: {},
-            name: {},
-            documents: {
-              $: { where: ['type', '=', 'customerOrder'], size: 50, sortBy: [{ field: 'createdAt', order: 'desc' }] },
-              nodes: {
-                id: {},
-                name: {},
-                number: {},
-                status: {},
-                price: {},
-                cost: {}
+        var contact = contactData.contact || {};
+        var account = contact.account || {};
+        var jobs = [];
+        if (account.id) {
+          var orgId = await getOrgId(grantKey);
+          try {
+            var jobsData = await paveQuery(grantKey, {
+              organization: {
+                $: { id: orgId },
+                jobs: {
+                  $: { where: ['account.id', '=', account.id], size: 50, sortBy: [{ field: 'createdAt', order: 'desc' }] },
+                  nodes: { id: {}, name: {}, number: {}, closedOn: {} }
+                }
               }
-            }
+            });
+            jobs = (jobsData.organization && jobsData.organization.jobs && jobsData.organization.jobs.nodes) || [];
+          } catch (e) {
+            console.warn('[BetterBoss] Could not fetch jobs for account:', e.message);
           }
-        });
-        var items = (data.job && data.job.documents && data.job.documents.nodes) || [];
-        return { type: 'estimates', title: 'Estimates for ' + ((data.job && data.job.name) || 'project'), data: items, count: items.length, columns: ['name', 'number', 'status', 'price', 'cost'] };
-      }
-
-      case 'GET_INVOICES': {
-        var data = await paveQuery(grantKey, {
-          job: {
-            $: { id: param },
-            id: {},
-            name: {},
-            documents: {
-              $: { where: ['type', '=', 'customerInvoice'], size: 50, sortBy: [{ field: 'createdAt', order: 'desc' }] },
-              nodes: {
-                id: {},
-                name: {},
-                number: {},
-                status: {},
-                price: {},
-                amountPaid: {}
-              }
-            }
+        }
+        return {
+          type: 'client_history',
+          title: 'Client: ' + (contact.name || 'Unknown'),
+          contactId: param,
+          data: {
+            name: contact.name,
+            title: contact.title,
+            accountName: account.name,
+            accountType: account.type,
+            totalJobs: jobs.length,
+            activeJobs: jobs.filter(function(j) { return !j.closedOn; }).length,
+            closedJobs: jobs.filter(function(j) { return j.closedOn; }).length,
+            recentJobs: jobs.slice(0, 5).map(function(j) {
+              return { id: j.id, name: j.name, number: j.number, status: j.closedOn ? 'Closed' : 'Active', url: 'https://app.jobtread.com/jobs/' + j.id };
+            }),
           }
-        });
-        var items = (data.job && data.job.documents && data.job.documents.nodes) || [];
-        return { type: 'invoices', title: 'Invoices for ' + ((data.job && data.job.name) || 'project'), data: items, count: items.length, columns: ['name', 'number', 'status', 'price', 'amountPaid'] };
-      }
-
-      case 'GET_TASKS': {
-        var data = await paveQuery(grantKey, {
-          job: {
-            $: { id: param },
-            id: {},
-            name: {},
-            tasks: {
-              $: { size: 50, sortBy: [{ field: 'startDate' }] },
-              nodes: {
-                id: {},
-                name: {},
-                progress: {},
-                startDate: {},
-                endDate: {}
-              }
-            }
-          }
-        });
-        var items = (data.job && data.job.tasks && data.job.tasks.nodes) || [];
-        return { type: 'tasks', title: 'Tasks', data: items, count: items.length, columns: ['name', 'progress', 'startDate', 'endDate'] };
-      }
-
-      case 'EXPORT_CSV': {
-        var result = await executeSkillAction(grantKey, 'SEARCH_' + (param || 'projects').toUpperCase(), '');
-        result.exportAs = 'csv';
-        return result;
+        };
       }
 
       case 'SAVE_MEMORY': {
@@ -692,36 +686,6 @@ async function executeSkillAction(grantKey, skill, param) {
   } catch (err) {
     return { error: err.message, skill: skill };
   }
-}
-
-// ═══════════════════════════════════════════════════════════
-// FILE UTILS (CSV)
-// ═══════════════════════════════════════════════════════════
-
-function toCSV(data, columns) {
-  if (!data || data.length === 0) return '';
-  var getValue = function(obj, key) {
-    return key.split('.').reduce(function(o, k) { return (o && o[k] != null) ? o[k] : ''; }, obj);
-  };
-  var cols = columns || Object.keys(data[0]);
-  var header = cols.map(function(c) { return '"' + c + '"'; }).join(',');
-  var rows = data.map(function(item) {
-    return cols.map(function(col) {
-      return '"' + String(getValue(item, col)).replace(/"/g, '""') + '"';
-    }).join(',');
-  });
-  return header + '\n' + rows.join('\n');
-}
-
-function downloadCSV(result) {
-  var csv = toCSV(result.data, result.columns);
-  var timestamp = new Date().toISOString().slice(0, 10);
-  var filename = 'jobtread-' + result.type + '-' + timestamp + '.csv';
-
-  // Use data URL instead of blob URL (service workers can't use createObjectURL)
-  var dataUrl = 'data:text/csv;base64,' + btoa(unescape(encodeURIComponent(csv)));
-  chrome.downloads.download({ url: dataUrl, filename: filename, saveAs: true });
-  return { success: true, filename: filename, rowCount: result.data.length };
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -745,9 +709,6 @@ async function handleMessage(message) {
 
     case 'CHAT':
       return handleChat(message.text);
-
-    case 'EXECUTE_SKILL':
-      return handleSkill(message.skill, message.param);
 
     case 'GET_MEMORY':
       return { notes: await Memory.getNotes() };
@@ -779,9 +740,6 @@ async function handleMessage(message) {
       return { success: true };
     case 'GET_PAGE_CONTEXT':
       return { context: currentPageContext };
-
-    case 'DOWNLOAD_CSV':
-      return downloadCSV(message.result);
 
     case 'EXPORT_ALL':
       return Memory.exportAll();
@@ -890,9 +848,6 @@ async function handleChat(text) {
       // All other skills need a JT token
       if (!settings.jobtreadToken) continue;
       const result = await executeSkillAction(settings.jobtreadToken, trigger.skill, trigger.param);
-      if (result.exportAs === 'csv') {
-        result.downloadInfo = downloadCSV(result);
-      }
       skillResults.push(result);
     }
 
@@ -904,25 +859,6 @@ async function handleChat(text) {
     console.error('[BetterBoss ' + BG_VERSION + '] handleChat error:', err);
     return { error: 'Chat error: ' + (err.message || String(err)) };
   }
-}
-
-// ═══════════════════════════════════════════════════════════
-// SKILL HANDLER
-// ═══════════════════════════════════════════════════════════
-
-async function handleSkill(skill, param) {
-  if (skill === 'BOOK_CALL') {
-    return { type: 'booking', url: 'https://cal.com/mybetterboss.ai/jobtread-free-growth-audit-call' };
-  }
-
-  const settings = await Memory.getSettings();
-  if (!settings.jobtreadToken) {
-    return { error: 'Please set your JobTread API token in Settings (⚙️ tab).' };
-  }
-
-  const result = await executeSkillAction(settings.jobtreadToken, skill, param);
-  if (result.exportAs === 'csv') downloadCSV(result);
-  return result;
 }
 
 // ═══════════════════════════════════════════════════════════

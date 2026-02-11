@@ -19,7 +19,6 @@
         <div class="header-sub" id="pageStatus">JobTread AI Assistant</div>
       </div>
       <div class="header-actions">
-        <button class="icon-btn" id="btnMemory" title="Memory">🧠</button>
         <button class="icon-btn" id="btnSettings" title="Settings">⚙️</button>
       </div>
     </header>
@@ -27,8 +26,6 @@
     <!-- Tab Bar -->
     <nav id="tabBar">
       <button class="tab active" data-tab="chat">💬 Chat</button>
-      <button class="tab" data-tab="skills">⚡ Skills</button>
-      <button class="tab" data-tab="memory">🧠 Memory</button>
       <button class="tab" data-tab="settings">⚙️ Settings</button>
     </nav>
 
@@ -41,49 +38,15 @@
             <span class="welcome-bolt">⚡</span>
           </div>
           <h2>Hey there! ⚡</h2>
-          <p>I'm your AI JobTread assistant with <strong>memory</strong>, <strong>skills</strong>, and <strong>direct API access</strong> to your JobTread account.</p>
-          <p class="sub">Try: "Search my projects for kitchen remodel" or "Export my contacts as CSV"</p>
+          <p>I'm your AI business analyst for JobTread. I analyze your data and surface <strong>insights</strong> you can't easily see in JT alone.</p>
+          <p class="sub">Try: "How's my business doing?" or navigate to a project and ask "Analyze this project"</p>
         </div>
       </div>
+      <div id="suggestions" class="suggestions"></div>
       <div class="chat-input-area">
         <div class="chat-input-wrap">
-          <input type="text" id="chatInput" placeholder="Ask anything about JobTread..." autocomplete="off">
+          <input type="text" id="chatInput" placeholder="Ask about your business..." autocomplete="off">
           <button id="btnSend" class="send-btn">➤</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Skills Panel -->
-    <div id="panel-skills" class="panel">
-      <div class="skills-grid" id="skillsGrid"></div>
-      <div class="skill-input-area" id="skillInputArea" style="display:none;">
-        <div class="skill-active" id="skillActive"></div>
-        <div class="chat-input-wrap">
-          <input type="text" id="skillInput" placeholder="Enter search query..." autocomplete="off">
-          <button id="btnSkillRun" class="send-btn">▶</button>
-        </div>
-      </div>
-      <div class="skill-result" id="skillResult" style="display:none;"></div>
-    </div>
-
-    <!-- Memory Panel -->
-    <div id="panel-memory" class="panel">
-      <div class="memory-header">
-        <h3>Saved Memory</h3>
-        <button class="small-btn danger" id="btnClearMemory">Clear All</button>
-      </div>
-      <div class="memory-add">
-        <input type="text" id="memoryKey" placeholder="Key (e.g. client_name)">
-        <input type="text" id="memoryValue" placeholder="Value">
-        <button class="small-btn primary" id="btnAddMemory">Save</button>
-      </div>
-      <div id="memoryList" class="memory-list"></div>
-      <div class="memory-section">
-        <h3>Conversation History</h3>
-        <p class="sub" id="conversationCount">0 messages</p>
-        <div class="memory-actions">
-          <button class="small-btn" id="btnExportMemory">Export All</button>
-          <button class="small-btn danger" id="btnClearChat">Clear Chat</button>
         </div>
       </div>
     </div>
@@ -109,7 +72,34 @@
       <button class="primary-btn" id="btnSaveSettings">💾 Save Settings</button>
       <button class="primary-btn" id="btnTestConnection" style="margin-top:8px;background:#10b981;">🔌 Test JobTread Connection</button>
       <div id="testResult" style="display:none;margin-top:8px;padding:10px;border-radius:8px;font-size:13px;"></div>
+
       <div class="setting-divider"></div>
+
+      <div class="setting-group">
+        <label>Memory</label>
+        <p class="help" style="margin-bottom:8px;">Key-value pairs the AI remembers across sessions.</p>
+        <div class="memory-add">
+          <input type="text" id="memoryKey" placeholder="Key">
+          <input type="text" id="memoryValue" placeholder="Value">
+          <button class="small-btn primary" id="btnAddMemory">+</button>
+        </div>
+        <div id="memoryList" class="memory-list"></div>
+      </div>
+
+      <div class="setting-divider"></div>
+
+      <div class="setting-group">
+        <label>Data</label>
+        <p class="sub" id="conversationCount" style="margin-bottom:8px;">0 messages</p>
+        <div class="memory-actions">
+          <button class="small-btn" id="btnExportMemory">Export All</button>
+          <button class="small-btn danger" id="btnClearChat">Clear Chat</button>
+          <button class="small-btn danger" id="btnClearMemory">Clear Memory</button>
+        </div>
+      </div>
+
+      <div class="setting-divider"></div>
+
       <div class="setting-group">
         <label>About</label>
         <p class="about">Built by <a href="https://better-boss.ai" target="_blank">Better Boss</a> — JobTread Certified Implementation Partner</p>

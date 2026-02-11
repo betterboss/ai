@@ -1,27 +1,22 @@
-// Popup controller — chat, skills, memory, settings
+// Popup controller — chat, suggestions, memory, settings
 
 document.addEventListener('DOMContentLoaded', init);
 
 let isLoading = false;
 
 async function init() {
-  // Verify background service worker is alive
   try {
     var ping = await chrome.runtime.sendMessage({ action: 'PING' });
     console.log('[BetterBoss Popup] Background alive:', ping);
-    if (!ping || !ping.pong) {
-      console.warn('[BetterBoss Popup] Background did not respond to PING');
-    }
   } catch (e) {
     console.error('[BetterBoss Popup] Background not reachable:', e.message);
   }
 
   setupTabs();
   setupChat();
-  setupSkills();
   setupMemory();
   setupSettings();
-  loadPageStatus();
+  loadPageContext();
   loadConversationHistory();
 }
 
@@ -35,16 +30,10 @@ function setupTabs() {
       document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
       tab.classList.add('active');
       document.getElementById(`panel-${tab.dataset.tab}`).classList.add('active');
-
-      // Refresh panel data
-      if (tab.dataset.tab === 'memory') loadMemory();
+      if (tab.dataset.tab === 'settings') loadMemory();
     });
   });
 
-  // Header button shortcuts
-  document.getElementById('btnMemory').addEventListener('click', () => {
-    document.querySelector('.tab[data-tab="memory"]').click();
-  });
   document.getElementById('btnSettings').addEventListener('click', () => {
     document.querySelector('.tab[data-tab="settings"]').click();
   });
@@ -64,9 +53,9 @@ function setupChat() {
   });
 }
 
-async function sendChat() {
+async function sendChat(textOverride) {
   const input = document.getElementById('chatInput');
-  const text = input.value.trim();
+  const text = textOverride || input.value.trim();
   if (!text) return;
 
   input.value = '';
@@ -77,9 +66,7 @@ async function sendChat() {
 
   try {
     const response = await chrome.runtime.sendMessage({ action: 'CHAT', text });
-
     hideTyping();
-
     if (response.error) {
       appendMessage('assistant', `⚠️ ${response.error}`);
     } else {
@@ -94,7 +81,9 @@ async function sendChat() {
   document.getElementById('btnSend').disabled = false;
 }
 
-function appendMessage(role, text, sources = [], skillResults = []) {
+function appendMessage(role, text, sources, skillResults) {
+  sources = sources || [];
+  skillResults = skillResults || [];
   const container = document.getElementById('chatMessages');
   const welcome = container.querySelector('.welcome');
   if (welcome) welcome.remove();
@@ -109,7 +98,7 @@ function appendMessage(role, text, sources = [], skillResults = []) {
   container.appendChild(msgDiv);
 
   // Sources
-  if (sources && sources.length > 0) {
+  if (sources.length > 0) {
     const srcDiv = document.createElement('div');
     srcDiv.className = 'sources-box';
     const label = document.createElement('div');
@@ -131,7 +120,7 @@ function appendMessage(role, text, sources = [], skillResults = []) {
   }
 
   // Skill results
-  if (skillResults && skillResults.length > 0) {
+  if (skillResults.length > 0) {
     for (const result of skillResults) {
       if (result.type === 'error_notice') {
         const noticeDiv = document.createElement('div');
@@ -141,26 +130,9 @@ function appendMessage(role, text, sources = [], skillResults = []) {
         continue;
       }
       if (result.error) continue;
-      if (result.type === 'memory_save') {
-        const memDiv = document.createElement('div');
-        memDiv.className = 'sources-box';
-        memDiv.innerHTML = `<div style="font-size:12px;color:#10b981;">🧠 Saved to memory: <strong>${escapeHtml(result.key)}</strong> = ${escapeHtml(result.value)}</div>`;
-        container.appendChild(memDiv);
-      } else if (result.type === 'booking') {
-        const bookDiv = document.createElement('div');
-        bookDiv.className = 'booking-inline';
-        bookDiv.innerHTML = `
-          <button class="booking-inline-btn" onclick="window.open('${result.url}', '_blank')">📞 Book Your FREE Growth Audit Call</button>
-          <span class="booking-inline-note">Free 30-min call with Nick Peret — no obligation</span>
-        `;
-        container.appendChild(bookDiv);
-      } else if (Array.isArray(result.data) && result.data.length > 0) {
-        container.appendChild(renderSkillResult(result));
-      } else if (result.data && typeof result.data === 'object' && !Array.isArray(result.data) && result.type !== 'dashboard') {
-        container.appendChild(renderDetailCard(result));
-      } else if (result.type === 'dashboard') {
-        container.appendChild(renderDashboard(result.data));
-      }
+
+      var card = renderInsightResult(result);
+      if (card) container.appendChild(card);
     }
   }
 
@@ -168,112 +140,277 @@ function appendMessage(role, text, sources = [], skillResults = []) {
   if (role === 'assistant' && text.includes('[BOOK_CALL]')) {
     const bookDiv = document.createElement('div');
     bookDiv.className = 'booking-inline';
-    bookDiv.innerHTML = `
-      <button class="booking-inline-btn" onclick="window.open('https://cal.com/mybetterboss.ai/jobtread-free-growth-audit-call', '_blank')">📞 Book Your FREE Growth Audit Call</button>
-      <span class="booking-inline-note">Free 30-min call with Nick Peret — no obligation</span>
-    `;
+    const bookBtn = document.createElement('button');
+    bookBtn.className = 'booking-inline-btn';
+    bookBtn.textContent = '📞 Book Your FREE Growth Audit Call';
+    bookBtn.addEventListener('click', function() { window.open('https://cal.com/mybetterboss.ai/jobtread-free-growth-audit-call', '_blank'); });
+    const bookNote = document.createElement('span');
+    bookNote.className = 'booking-inline-note';
+    bookNote.textContent = 'Free 30-min call with Nick Peret — no obligation';
+    bookDiv.appendChild(bookBtn);
+    bookDiv.appendChild(bookNote);
     container.appendChild(bookDiv);
   }
 
   container.scrollTop = container.scrollHeight;
 }
 
-function renderSkillResult(result) {
-  const div = document.createElement('div');
-  div.className = 'skill-result-card';
+// ── Insight Result Renderers ────────────────────────────────
 
-  const cols = result.columns || Object.keys(result.data[0] || {});
-  const getValue = (obj, key) => key.split('.').reduce((o, k) => (o && o[k] != null ? o[k] : '—'), obj);
-  const displayCols = cols.slice(0, 4); // Max 4 columns in popup
-
-  let tableHTML = `
-    <div class="skill-result-title">${result.title} (${result.count} results)</div>
-    <table class="skill-result-table">
-      <thead><tr>${displayCols.map(c => `<th>${c.split('.').pop()}</th>`).join('')}</tr></thead>
-      <tbody>
-        ${result.data.slice(0, 8).map(item => `
-          <tr>${displayCols.map(c => {
-            let val = getValue(item, c);
-            if (typeof val === 'number' && c.toLowerCase().includes('price')) val = '$' + val.toLocaleString();
-            return `<td>${val}</td>`;
-          }).join('')}</tr>
-        `).join('')}
-      </tbody>
-    </table>
-  `;
-
-  if (result.data.length > 8) {
-    tableHTML += `<div class="sub" style="margin-top:6px;">+ ${result.data.length - 8} more rows</div>`;
+function renderInsightResult(result) {
+  switch (result.type) {
+    case 'project_analysis': return renderProjectAnalysis(result);
+    case 'business_overview': return renderBusinessOverview(result);
+    case 'cash_flow': return renderCashFlow(result);
+    case 'search_results': return renderSearchResults(result);
+    case 'client_history': return renderClientHistory(result);
+    case 'memory_save': return renderMemorySave(result);
+    case 'booking': return renderBooking(result);
+    default: return null;
   }
+}
 
-  div.innerHTML = tableHTML;
+function fmtDollars(n) {
+  return '$' + (n || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+}
 
-  const actionsDiv = document.createElement('div');
-  actionsDiv.className = 'skill-result-actions';
-  const csvBtn = document.createElement('button');
-  csvBtn.className = 'small-btn';
-  csvBtn.textContent = '📄 Download CSV';
-  csvBtn.addEventListener('click', () => downloadCSV(result));
-  actionsDiv.appendChild(csvBtn);
-  div.appendChild(actionsDiv);
+function renderProjectAnalysis(result) {
+  const d = result.data;
+  const div = document.createElement('div');
+  div.className = 'insight-card';
 
+  let alerts = '';
+  if (d.overdueTasks > 0) alerts += `<div class="insight-alert warning">⚠️ ${d.overdueTasks} overdue task${d.overdueTasks > 1 ? 's' : ''}${d.overdueTaskNames.length ? ': ' + d.overdueTaskNames.map(n => escapeHtml(n)).join(', ') : ''}</div>`;
+  if (d.outstandingBalance > 0) alerts += `<div class="insight-alert warning">💰 ${fmtDollars(d.outstandingBalance)} outstanding balance</div>`;
+  if (d.expectedMargin > 0 && d.expectedMargin < 15) alerts += `<div class="insight-alert danger">📉 Low margin: ${d.expectedMargin.toFixed(1)}% (target: 15-25%)</div>`;
+
+  div.innerHTML = `
+    <div class="insight-title">📊 ${escapeHtml(result.title)}</div>
+    <div class="insight-status">${escapeHtml(d.status)}${d.pendingEstimates > 0 ? ' · ' + d.pendingEstimates + ' pending estimate(s)' : ''}</div>
+    ${alerts}
+    <div class="insight-grid">
+      <div class="insight-metric">
+        <div class="insight-metric-value">${fmtDollars(d.estimatedRevenue)}</div>
+        <div class="insight-metric-label">Est. Revenue</div>
+      </div>
+      <div class="insight-metric">
+        <div class="insight-metric-value">${d.expectedMargin.toFixed(1)}%</div>
+        <div class="insight-metric-label">Margin</div>
+      </div>
+      <div class="insight-metric">
+        <div class="insight-metric-value">${fmtDollars(d.totalInvoiced)}</div>
+        <div class="insight-metric-label">Invoiced</div>
+      </div>
+      <div class="insight-metric">
+        <div class="insight-metric-value">${fmtDollars(d.totalCollected)}</div>
+        <div class="insight-metric-label">Collected</div>
+      </div>
+    </div>
+    ${d.taskCount > 0 ? `
+    <div class="insight-progress">
+      <div class="insight-progress-bar" style="width:${d.taskCompletion}%"></div>
+      <span>${d.taskCompletion}% complete (${d.completedTasks}/${d.taskCount} tasks)</span>
+    </div>` : ''}
+    ${result.jobId ? `<a class="jt-link" href="https://app.jobtread.com/jobs/${encodeURIComponent(result.jobId)}" target="_blank">Open in JobTread →</a>` : ''}
+  `;
   return div;
 }
 
-function renderDashboard(data) {
-  const fmt = (n) => typeof n === 'number' ? '$' + n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '$0.00';
+function renderBusinessOverview(result) {
+  const d = result.data;
   const div = document.createElement('div');
-  div.className = 'skill-result-card';
+  div.className = 'insight-card';
+
+  let alerts = '';
+  var over60 = (d.agingCounts.over60 || 0) + (d.agingCounts.over90 || 0);
+  var over60amt = (d.aging.over60 || 0) + (d.aging.over90 || 0);
+  if (over60 > 0) alerts += `<div class="insight-alert danger">🔴 ${over60} invoice${over60 > 1 ? 's' : ''} over 60 days (${fmtDollars(over60amt)})</div>`;
+
   div.innerHTML = `
-    <div class="skill-result-title">📊 Dashboard Stats</div>
-    <div style="display:flex;gap:12px;margin-top:8px;">
-      <div style="flex:1;text-align:center;padding:10px;background:rgba(93,71,250,0.1);border-radius:10px;">
-        <div style="font-size:24px;font-weight:700;color:#7a64ff;">${data.activeJobs}</div>
-        <div style="font-size:11px;color:#6b6b8a;">Active Jobs</div>
+    <div class="insight-title">📊 Business Overview</div>
+    ${alerts}
+    <div class="insight-grid">
+      <div class="insight-metric">
+        <div class="insight-metric-value">${d.activeJobs}</div>
+        <div class="insight-metric-label">Active Jobs</div>
       </div>
-      <div style="flex:1;text-align:center;padding:10px;background:rgba(245,158,11,0.1);border-radius:10px;">
-        <div style="font-size:24px;font-weight:700;color:#f59e0b;">${data.pendingEstimates}</div>
-        <div style="font-size:11px;color:#6b6b8a;">Pending Estimates</div>
-        <div style="font-size:13px;font-weight:600;color:#f59e0b;margin-top:4px;">${fmt(data.pendingEstimatesTotal)}</div>
+      <div class="insight-metric">
+        <div class="insight-metric-value">${fmtDollars(d.pipelineValue)}</div>
+        <div class="insight-metric-label">Pipeline (${d.pendingEstimates})</div>
       </div>
-      <div style="flex:1;text-align:center;padding:10px;background:rgba(16,185,129,0.1);border-radius:10px;">
-        <div style="font-size:24px;font-weight:700;color:#10b981;">${data.unpaidInvoices}</div>
-        <div style="font-size:11px;color:#6b6b8a;">Unpaid Invoices</div>
-        <div style="font-size:13px;font-weight:600;color:#10b981;margin-top:4px;">${fmt(data.unpaidInvoicesTotal)}</div>
+      <div class="insight-metric">
+        <div class="insight-metric-value" style="color:#ef4444;">${fmtDollars(d.totalAR)}</div>
+        <div class="insight-metric-label">Outstanding AR</div>
       </div>
+    </div>
+    <div class="insight-aging">
+      <div class="insight-aging-label">Invoice Aging</div>
+      <div class="insight-aging-row"><span>0-30 days</span><span>${fmtDollars(d.aging.current)} (${d.agingCounts.current})</span></div>
+      <div class="insight-aging-row"><span>31-60 days</span><span>${fmtDollars(d.aging.over30)} (${d.agingCounts.over30})</span></div>
+      <div class="insight-aging-row ${d.agingCounts.over60 > 0 ? 'warning' : ''}"><span>61-90 days</span><span>${fmtDollars(d.aging.over60)} (${d.agingCounts.over60})</span></div>
+      <div class="insight-aging-row ${d.agingCounts.over90 > 0 ? 'danger' : ''}"><span>90+ days</span><span>${fmtDollars(d.aging.over90)} (${d.agingCounts.over90})</span></div>
     </div>
   `;
   return div;
 }
 
-function renderDetailCard(result) {
+function renderCashFlow(result) {
+  const d = result.data;
   const div = document.createElement('div');
-  div.className = 'skill-result-card';
-  const data = result.data || {};
-  const entries = Object.entries(data).filter(([k, v]) => k !== 'id' && v != null && typeof v !== 'object');
-  let html = `<div class="skill-result-title">${escapeHtml(result.title || 'Details')}</div>`;
-  html += '<div style="display:flex;flex-direction:column;gap:4px;margin-top:6px;">';
-  for (const [key, val] of entries) {
-    html += `<div style="display:flex;gap:8px;font-size:12px;">
-      <span style="color:#a78bfa;font-weight:600;min-width:90px;">${escapeHtml(key)}</span>
-      <span style="color:#9b9bb8;">${escapeHtml(String(val))}</span>
-    </div>`;
-  }
-  // Render nested objects (e.g. account)
-  const nested = Object.entries(data).filter(([k, v]) => v && typeof v === 'object' && !Array.isArray(v));
-  for (const [key, obj] of nested) {
-    for (const [nk, nv] of Object.entries(obj)) {
-      if (nk === 'id' || nv == null) continue;
-      html += `<div style="display:flex;gap:8px;font-size:12px;">
-        <span style="color:#a78bfa;font-weight:600;min-width:90px;">${escapeHtml(key + '.' + nk)}</span>
-        <span style="color:#9b9bb8;">${escapeHtml(String(nv))}</span>
-      </div>`;
-    }
+  div.className = 'insight-card';
+
+  div.innerHTML = `
+    <div class="insight-title">💰 Cash Flow</div>
+    <div class="insight-grid">
+      <div class="insight-metric">
+        <div class="insight-metric-value" style="color:#f59e0b;">${fmtDollars(d.pipelineValue)}</div>
+        <div class="insight-metric-label">Pipeline (${d.pendingEstimateCount})</div>
+      </div>
+      <div class="insight-metric">
+        <div class="insight-metric-value" style="color:#ef4444;">${fmtDollars(d.totalAR)}</div>
+        <div class="insight-metric-label">Receivables (${d.unpaidInvoiceCount})</div>
+      </div>
+    </div>
+    <div class="insight-aging">
+      <div class="insight-aging-label">Aging Breakdown</div>
+      ${d.buckets.map(function(b) {
+        var cls = b.label.includes('90') ? 'danger' : b.label.includes('61') ? 'warning' : '';
+        return '<div class="insight-aging-row ' + cls + '"><span>' + b.label + '</span><span>' + fmtDollars(b.total) + ' (' + b.count + ')</span></div>';
+      }).join('')}
+    </div>
+    ${d.oldestInvoices.length > 0 ? `
+    <div class="insight-section">
+      <div class="insight-aging-label">Oldest Outstanding</div>
+      ${d.oldestInvoices.map(function(inv) {
+        return '<div class="insight-aging-row danger"><span>' + escapeHtml(inv.name) + '</span><span>' + fmtDollars(inv.owed) + ' (' + inv.days + 'd)</span></div>';
+      }).join('')}
+    </div>` : ''}
+  `;
+  return div;
+}
+
+function renderSearchResults(result) {
+  const div = document.createElement('div');
+  div.className = 'insight-card';
+  let html = `<div class="insight-title">${escapeHtml(result.title)} (${result.count})</div>`;
+  html += '<div class="search-results-list">';
+  for (const item of result.data.slice(0, 10)) {
+    var statusCls = (item.status === 'Active' || item.status === 'Closed') ? item.status.toLowerCase() : '';
+    html += `<a class="search-result-item" href="${escapeHtml(item.url)}" target="_blank">
+      <div>
+        <span class="search-result-name">${escapeHtml(item.name)}${item.number ? ' #' + item.number : ''}</span>
+        ${item.subtitle ? '<div class="search-result-subtitle">' + escapeHtml(item.subtitle) + '</div>' : ''}
+      </div>
+      <span class="search-result-status ${statusCls}">${escapeHtml(item.status)}</span>
+    </a>`;
   }
   html += '</div>';
   div.innerHTML = html;
   return div;
 }
+
+function renderClientHistory(result) {
+  const d = result.data;
+  const div = document.createElement('div');
+  div.className = 'insight-card';
+  let html = `
+    <div class="insight-title">👤 ${escapeHtml(d.name || 'Unknown')}</div>
+    <div class="insight-status">${d.title ? escapeHtml(d.title) + ' — ' : ''}${escapeHtml(d.accountName || '')}${d.accountType ? ' (' + escapeHtml(d.accountType) + ')' : ''}</div>
+    <div class="insight-grid">
+      <div class="insight-metric"><div class="insight-metric-value">${d.totalJobs}</div><div class="insight-metric-label">Total Jobs</div></div>
+      <div class="insight-metric"><div class="insight-metric-value" style="color:#10b981;">${d.activeJobs}</div><div class="insight-metric-label">Active</div></div>
+      <div class="insight-metric"><div class="insight-metric-value">${d.closedJobs}</div><div class="insight-metric-label">Completed</div></div>
+    </div>
+  `;
+  if (d.recentJobs && d.recentJobs.length > 0) {
+    html += '<div class="insight-section"><div class="insight-aging-label">Recent Jobs</div><div class="search-results-list">';
+    for (const job of d.recentJobs) {
+      html += `<a class="search-result-item" href="${escapeHtml(job.url)}" target="_blank">
+        <span class="search-result-name">${escapeHtml(job.name)}${job.number ? ' #' + job.number : ''}</span>
+        <span class="search-result-status ${job.status === 'Active' ? 'active' : 'closed'}">${job.status}</span>
+      </a>`;
+    }
+    html += '</div></div>';
+  }
+  if (result.contactId) {
+    html += `<a class="jt-link" href="https://app.jobtread.com/contacts/${encodeURIComponent(result.contactId)}" target="_blank">Open in JobTread →</a>`;
+  }
+  div.innerHTML = html;
+  return div;
+}
+
+function renderMemorySave(result) {
+  const div = document.createElement('div');
+  div.className = 'sources-box';
+  div.innerHTML = `<div style="font-size:12px;color:#10b981;">🧠 Saved to memory: <strong>${escapeHtml(result.key)}</strong> = ${escapeHtml(result.value)}</div>`;
+  return div;
+}
+
+function renderBooking(result) {
+  const div = document.createElement('div');
+  div.className = 'booking-inline';
+  const btn = document.createElement('button');
+  btn.className = 'booking-inline-btn';
+  btn.textContent = '📞 Book Your FREE Growth Audit Call';
+  btn.addEventListener('click', function() { window.open(result.url, '_blank'); });
+  const note = document.createElement('span');
+  note.className = 'booking-inline-note';
+  note.textContent = 'Free 30-min call with Nick Peret — no obligation';
+  div.appendChild(btn);
+  div.appendChild(note);
+  return div;
+}
+
+// ── Smart Suggestions ───────────────────────────────────────
+
+var currentContext = { type: 'none', jobId: null, contactId: null };
+
+function updateSuggestions(ctx) {
+  const el = document.getElementById('suggestions');
+  el.innerHTML = '';
+  var chips = [];
+
+  if (ctx.type === 'project' && ctx.jobId) {
+    chips.push({ label: '📊 Analyze this project', text: 'Analyze this project' });
+    chips.push({ label: '💰 What\'s outstanding?', text: 'What\'s the outstanding balance on this project?' });
+    chips.push({ label: '📋 Task progress', text: 'How are the tasks progressing on this project?' });
+  } else if (ctx.type === 'contact' && ctx.contactId) {
+    chips.push({ label: '👤 Client history', text: 'Show me this client\'s history' });
+    chips.push({ label: '📊 Business overview', text: 'How\'s my business doing?' });
+  } else if (ctx.type === 'dashboard') {
+    chips.push({ label: '📊 Business health', text: 'Give me a business health check' });
+    chips.push({ label: '💰 Who owes me?', text: 'Who owes me money right now?' });
+    chips.push({ label: '📈 Cash flow', text: 'Show me my cash flow situation' });
+  } else {
+    chips.push({ label: '📊 Business overview', text: 'How\'s my business doing?' });
+    chips.push({ label: '💰 Cash flow', text: 'Show me my cash flow' });
+    chips.push({ label: '📈 Who owes me?', text: 'Who owes me money?' });
+  }
+
+  chips.forEach(function(c) {
+    var chip = document.createElement('button');
+    chip.className = 'suggestion-chip';
+    chip.textContent = c.label;
+    chip.addEventListener('click', function() {
+      if (!isLoading) sendChat(c.text);
+    });
+    el.appendChild(chip);
+  });
+}
+
+function parsePageContext(ctxString) {
+  var result = { type: 'none', jobId: null, contactId: null };
+  if (!ctxString || ctxString.includes('Not on')) return result;
+  var typeMatch = ctxString.match(/Page type: (\w+)/);
+  if (typeMatch) result.type = typeMatch[1];
+  var jobMatch = ctxString.match(/Job ID: ([^\n]+)/);
+  if (jobMatch) result.jobId = jobMatch[1].trim();
+  var contactMatch = ctxString.match(/Contact ID: ([^\n]+)/);
+  if (contactMatch) result.contactId = contactMatch[1].trim();
+  return result;
+}
+
+// ── Typing Indicator ────────────────────────────────────────
 
 function showTyping() {
   const container = document.getElementById('chatMessages');
@@ -293,21 +430,12 @@ function hideTyping() {
   if (el) el.remove();
 }
 
-// CSV download from skill result
-window.downloadCSV = function (result) {
-  chrome.runtime.sendMessage({ action: 'DOWNLOAD_CSV', result });
-};
-
 // ── Load conversation history ───────────────────────────────
 
 async function loadConversationHistory() {
   try {
     const response = await chrome.runtime.sendMessage({ action: 'GET_CONVERSATIONS' });
     if (response.messages && response.messages.length > 0) {
-      const container = document.getElementById('chatMessages');
-      const welcome = container.querySelector('.welcome');
-      if (welcome) welcome.remove();
-
       for (const msg of response.messages) {
         appendMessage(msg.role, msg.content, msg.sources, msg.skillResults);
       }
@@ -317,102 +445,23 @@ async function loadConversationHistory() {
   }
 }
 
-// ── Skills ──────────────────────────────────────────────────
+// ── Page Context ────────────────────────────────────────────
 
-function setupSkills() {
-  const grid = document.getElementById('skillsGrid');
-  const skills = [
-    { id: 'SEARCH_PROJECTS', label: 'Search Projects', icon: '🏗️', desc: 'Find projects by name, number, or customer', needsInput: true },
-    { id: 'SEARCH_CONTACTS', label: 'Search Contacts', icon: '👥', desc: 'Find contacts, customers, or vendors', needsInput: true },
-    { id: 'SEARCH_CATALOG', label: 'Search Catalog', icon: '📦', desc: 'Search your catalog items and pricing', needsInput: true },
-    { id: 'DASHBOARD', label: 'Dashboard', icon: '📊', desc: 'Quick stats on jobs, estimates, invoices', needsInput: false },
-    { id: 'EXPORT_CSV', label: 'Export CSV', icon: '📄', desc: 'Export projects, contacts, or catalog', needsInput: true, placeholder: 'Type: projects, contacts, or catalog' },
-    { id: 'BOOK_CALL', label: 'Book Audit Call', icon: '📞', desc: 'FREE Growth Audit with Nick Peret', needsInput: false },
-  ];
-
-  skills.forEach(skill => {
-    const card = document.createElement('div');
-    card.className = 'skill-card';
-    card.innerHTML = `
-      <div class="skill-icon">${skill.icon}</div>
-      <div class="skill-label">${skill.label}</div>
-      <div class="skill-desc">${skill.desc}</div>
-    `;
-    card.addEventListener('click', () => activateSkill(skill));
-    grid.appendChild(card);
-  });
-
-  document.getElementById('btnSkillRun').addEventListener('click', runActiveSkill);
-  document.getElementById('skillInput').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') runActiveSkill();
-  });
-}
-
-let activeSkill = null;
-
-function activateSkill(skill) {
-  if (!skill.needsInput) {
-    // Execute immediately
-    executeSkill(skill.id, '');
-    return;
-  }
-
-  activeSkill = skill;
-  document.getElementById('skillInputArea').style.display = 'block';
-  document.getElementById('skillActive').textContent = `${skill.icon} ${skill.label}`;
-  const input = document.getElementById('skillInput');
-  input.placeholder = skill.placeholder || `Search ${skill.label.toLowerCase()}...`;
-  input.focus();
-}
-
-async function runActiveSkill() {
-  if (!activeSkill) return;
-  const input = document.getElementById('skillInput');
-  const query = input.value.trim();
-  input.value = '';
-  executeSkill(activeSkill.id, query);
-}
-
-async function executeSkill(skillId, param) {
-  const resultDiv = document.getElementById('skillResult');
-  resultDiv.style.display = 'block';
-  resultDiv.innerHTML = '<div class="sub" style="padding:12px;text-align:center;">Loading...</div>';
-
+async function loadPageContext() {
   try {
-    const response = await chrome.runtime.sendMessage({
-      action: 'EXECUTE_SKILL',
-      skill: skillId,
-      param,
-    });
-
-    if (response.error) {
-      resultDiv.innerHTML = `<div style="color:#ef4444;padding:12px;">⚠️ ${response.error}</div>`;
-      return;
-    }
-
-    if (response.type === 'booking') {
-      window.open(response.url, '_blank');
-      resultDiv.style.display = 'none';
-      return;
-    }
-
-    if (response.type === 'dashboard') {
-      resultDiv.innerHTML = '';
-      resultDiv.appendChild(renderDashboard(response.data));
-      return;
-    }
-
-    if (Array.isArray(response.data)) {
-      resultDiv.innerHTML = '';
-      resultDiv.appendChild(renderSkillResult(response));
-    } else if (response.data && typeof response.data === 'object') {
-      resultDiv.innerHTML = '';
-      resultDiv.appendChild(renderDetailCard(response));
+    const response = await chrome.runtime.sendMessage({ action: 'GET_PAGE_CONTEXT' });
+    const el = document.getElementById('pageStatus');
+    const ctx = response.context || '';
+    if (ctx && !ctx.includes('Not on')) {
+      el.textContent = '🟢 Connected to JobTread';
+      el.style.color = '#10b981';
     } else {
-      resultDiv.innerHTML = `<pre style="font-size:11px;white-space:pre-wrap;padding:12px;">${JSON.stringify(response.data, null, 2)}</pre>`;
+      el.textContent = 'JobTread AI Assistant';
     }
-  } catch (err) {
-    resultDiv.innerHTML = `<div style="color:#ef4444;padding:12px;">⚠️ ${err.message}</div>`;
+    currentContext = parsePageContext(ctx);
+    updateSuggestions(currentContext);
+  } catch (e) {
+    updateSuggestions({ type: 'none' });
   }
 }
 
@@ -437,7 +486,8 @@ function setupMemory() {
             <span class="welcome-bolt">⚡</span>
           </div>
           <h2>Hey there! ⚡</h2>
-          <p>I'm your AI JobTread assistant with <strong>memory</strong>, <strong>skills</strong>, and <strong>direct API access</strong>.</p>
+          <p>I'm your AI business analyst for JobTread. I analyze your data and surface <strong>insights</strong> you can't easily see in JT alone.</p>
+          <p class="sub">Try: "How's my business doing?" or navigate to a project and ask "Analyze this project"</p>
         </div>
       `;
       loadMemory();
@@ -449,7 +499,7 @@ function setupMemory() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `betterboss-memory-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `betterboss-export-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
   });
@@ -469,7 +519,7 @@ async function loadMemory() {
     const entries = Object.entries(notes);
 
     if (entries.length === 0) {
-      list.innerHTML = '<div class="sub" style="padding:8px;">No saved memory yet. Add key-value pairs above.</div>';
+      list.innerHTML = '<div class="sub" style="padding:8px;">No saved memory yet.</div>';
     } else {
       list.innerHTML = entries.map(([key, val]) => `
         <div class="memory-item">
@@ -499,9 +549,7 @@ async function addMemory() {
   const valEl = document.getElementById('memoryValue');
   const key = keyEl.value.trim();
   const value = valEl.value.trim();
-
   if (!key || !value) return;
-
   await chrome.runtime.sendMessage({ action: 'SAVE_NOTE', key, value });
   keyEl.value = '';
   valEl.value = '';
@@ -512,7 +560,6 @@ async function addMemory() {
 
 function setupSettings() {
   loadSettings();
-
   document.getElementById('btnSaveSettings').addEventListener('click', saveSettings);
   document.getElementById('btnToggleKey').addEventListener('click', () => {
     const el = document.getElementById('settingClaudeKey');
@@ -534,9 +581,7 @@ async function loadSettings() {
     const s = response.settings || {};
     document.getElementById('settingClaudeKey').value = s.claudeApiKey || '';
     document.getElementById('settingJtToken').value = s.jobtreadToken || '';
-  } catch (e) {
-    // Fresh install
-  }
+  } catch (e) {}
 }
 
 async function saveSettings() {
@@ -546,9 +591,7 @@ async function saveSettings() {
   };
   await chrome.runtime.sendMessage({ action: 'SAVE_SETTINGS', settings });
   document.getElementById('btnSaveSettings').textContent = '✓ Saved!';
-  setTimeout(() => {
-    document.getElementById('btnSaveSettings').textContent = '💾 Save Settings';
-  }, 2000);
+  setTimeout(() => { document.getElementById('btnSaveSettings').textContent = '💾 Save Settings'; }, 2000);
 }
 
 async function testConnection() {
@@ -561,7 +604,6 @@ async function testConnection() {
   btn.disabled = true;
 
   try {
-    // Save settings first so token is available
     await saveSettings();
     const response = await chrome.runtime.sendMessage({ action: 'TEST_JT_CONNECTION' });
     if (response.error) {
@@ -578,25 +620,7 @@ async function testConnection() {
     resultDiv.style.color = '#ef4444';
     resultDiv.textContent = 'Error: ' + err.message;
   }
-
   btn.disabled = false;
-}
-
-// ── Page Status ─────────────────────────────────────────────
-
-async function loadPageStatus() {
-  try {
-    const response = await chrome.runtime.sendMessage({ action: 'GET_PAGE_CONTEXT' });
-    const el = document.getElementById('pageStatus');
-    if (response.context && !response.context.includes('Not on')) {
-      el.textContent = '🟢 Connected to JobTread';
-      el.style.color = '#10b981';
-    } else {
-      el.textContent = 'JobTread AI Assistant';
-    }
-  } catch (e) {
-    // Not connected
-  }
 }
 
 // ── Markdown Renderer ───────────────────────────────────────
@@ -604,7 +628,6 @@ async function loadPageStatus() {
 function renderMarkdown(text) {
   const clean = text.replace(/\[BOOK_CALL\]/g, '').replace(/\[SKILL:[^\]]+\]/g, '');
 
-  // Extract code blocks
   const codeBlocks = [];
   let processed = clean.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) => {
     const idx = codeBlocks.length;
@@ -672,8 +695,7 @@ function renderMarkdown(text) {
 }
 
 function inlineFmt(str) {
-  // Escape HTML first to prevent injection, then apply markdown
-  const safe = str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const safe = str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   return safe
     .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>')
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
