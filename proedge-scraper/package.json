@@ -1,0 +1,22 @@
+{
+  "name": "proedge-scraper",
+  "version": "1.0.0",
+  "description": "Automated ProEdge Build data exporter - connects to active Chrome session, crawls all sections, downloads files/images, and optionally uploads to Google Drive",
+  "main": "scraper.js",
+  "scripts": {
+    "scrape": "node scraper.js",
+    "upload": "node gdrive-upload.js",
+    "start": "bash start.sh"
+  },
+  "dependencies": {
+    "playwright": "^1.42.0",
+    "googleapis": "^134.0.0",
+    "cheerio": "^1.0.0-rc.12",
+    "mime-types": "^2.1.35"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "license": "UNLICENSED",
+  "private": true
+}

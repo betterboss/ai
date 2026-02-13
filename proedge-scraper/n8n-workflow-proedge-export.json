@@ -1,0 +1,360 @@
+{
+  "name": "ProEdge Build Full Export to Google Drive",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "trigger-manual",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ═══════════════════════════════════════════════════════\n// ProEdge Build Export Configuration\n// ═══════════════════════════════════════════════════════\n// \n// INSTRUCTIONS:\n// 1. Log into ProEdge Build in your browser\n// 2. Open DevTools (F12) → Console\n// 3. Type: document.cookie\n// 4. Copy the entire string and paste below\n// 5. Create a Google Drive folder and paste the folder ID below\n//    (The folder ID is the last part of the URL:\n//     https://drive.google.com/drive/folders/FOLDER_ID_HERE)\n\nconst config = {\n  baseUrl: 'https://www.proedgebuild.com',\n  sessionCookie: 'PASTE_YOUR_SESSION_COOKIE_HERE',\n  driveFolderId: '1Wxx1iNN81kaQx6ZaNsRflItOMPJvH6Tx',\n  \n  sections: [\n    { name: 'dashboard',       path: '/main.cfm' },\n    { name: 'projects',        path: '/projects.cfm' },\n    { name: 'projects',        path: '/project_list.cfm' },\n    { name: 'estimates',       path: '/estimates.cfm' },\n    { name: 'estimates',       path: '/estimate_list.cfm' },\n    { name: 'proposals',       path: '/proposals.cfm' },\n    { name: 'proposals',       path: '/proposal_list.cfm' },\n    { name: 'invoices',        path: '/invoices.cfm' },\n    { name: 'invoices',        path: '/invoice_list.cfm' },\n    { name: 'payments',        path: '/payments.cfm' },\n    { name: 'payments',        path: '/payment_list.cfm' },\n    { name: 'contacts',        path: '/contacts.cfm' },\n    { name: 'contacts',        path: '/contact_list.cfm' },\n    { name: 'customers',       path: '/customers.cfm' },\n    { name: 'customers',       path: '/customer_list.cfm' },\n    { name: 'leads',           path: '/leads.cfm' },\n    { name: 'leads',           path: '/lead_list.cfm' },\n    { name: 'vendors',         path: '/vendors.cfm' },\n    { name: 'vendors',         path: '/vendor_list.cfm' },\n    { name: 'subcontractors',  path: '/subcontractors.cfm' },\n    { name: 'subcontractors',  path: '/sub_list.cfm' },\n    { name: 'schedules',       path: '/schedules.cfm' },\n    { name: 'schedules',       path: '/schedule_list.cfm' },\n    { name: 'calendar',        path: '/calendar.cfm' },\n    { name: 'tasks',           path: '/tasks.cfm' },\n    { name: 'tasks',           path: '/task_list.cfm' },\n    { name: 'timesheets',      path: '/timesheets.cfm' },\n    { name: 'timesheets',      path: '/timesheet_list.cfm' },\n    { name: 'purchase_orders', path: '/purchase_orders.cfm' },\n    { name: 'purchase_orders', path: '/po_list.cfm' },\n    { name: 'change_orders',   path: '/change_orders.cfm' },\n    { name: 'change_orders',   path: '/co_list.cfm' },\n    { name: 'daily_logs',      path: '/daily_logs.cfm' },\n    { name: 'daily_logs',      path: '/dailylog_list.cfm' },\n    { name: 'documents',       path: '/documents.cfm' },\n    { name: 'documents',       path: '/document_list.cfm' },\n    { name: 'files',           path: '/files.cfm' },\n    { name: 'files',           path: '/file_list.cfm' },\n    { name: 'photos',          path: '/photos.cfm' },\n    { name: 'photos',          path: '/photo_list.cfm' },\n    { name: 'reports',         path: '/reports.cfm' },\n    { name: 'reports',         path: '/report_list.cfm' },\n    { name: 'settings',        path: '/settings.cfm' },\n    { name: 'settings',        path: '/company_settings.cfm' },\n    { name: 'users',           path: '/users.cfm' },\n    { name: 'users',           path: '/user_list.cfm' },\n    { name: 'templates',       path: '/templates.cfm' },\n    { name: 'templates',       path: '/template_list.cfm' },\n    { name: 'catalog',         path: '/catalog.cfm' },\n    { name: 'catalog',         path: '/item_list.cfm' },\n    { name: 'categories',      path: '/categories.cfm' },\n    { name: 'tags',            path: '/tags.cfm' }\n  ]\n};\n\nreturn [{ json: config }];"
+      },
+      "id": "config-node",
+      "name": "Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const config = $input.first().json;\nconst sections = config.sections;\n\n// Deduplicate by path\nconst seen = new Set();\nconst unique = [];\nfor (const s of sections) {\n  if (!seen.has(s.path)) {\n    seen.add(s.path);\n    unique.push(s);\n  }\n}\n\n// Return each section as a separate item for the loop\nreturn unique.map(s => ({\n  json: {\n    ...s,\n    baseUrl: config.baseUrl,\n    sessionCookie: config.sessionCookie,\n    driveFolderId: config.driveFolderId,\n    fullUrl: config.baseUrl + s.path\n  }\n}));"
+      },
+      "id": "split-sections",
+      "name": "Split Sections",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.fullUrl }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Cookie",
+              "value": "={{ $json.sessionCookie }}"
+            },
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            },
+            {
+              "name": "Accept",
+              "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+            }
+          ]
+        },
+        "options": {
+          "redirect": {
+            "redirect": {
+              "followRedirects": true,
+              "maxRedirects": 5
+            }
+          },
+          "timeout": 30000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "id": "fetch-page",
+      "name": "Fetch Page",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [660, 300],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  const html = item.json.body || item.json.data || '';\n  const sectionName = item.json.name || 'unknown';\n  const url = item.json.fullUrl || '';\n  \n  if (!html || html.length < 100) {\n    results.push({\n      json: {\n        section: sectionName,\n        url,\n        status: 'empty_or_error',\n        tables: [],\n        links: [],\n        images: [],\n        rawHtml: html\n      }\n    });\n    continue;\n  }\n  \n  // ─── Parse HTML tables ─────────────────────────────────────\n  const tables = [];\n  const tableRegex = /<table[^>]*>([\\s\\S]*?)<\\/table>/gi;\n  let tableMatch;\n  \n  while ((tableMatch = tableRegex.exec(html)) !== null) {\n    const tableHtml = tableMatch[0];\n    const rows = [];\n    const headers = [];\n    \n    // Extract headers\n    const thRegex = /<th[^>]*>([\\s\\S]*?)<\\/th>/gi;\n    let thMatch;\n    while ((thMatch = thRegex.exec(tableHtml)) !== null) {\n      headers.push(thMatch[1].replace(/<[^>]+>/g, '').trim());\n    }\n    \n    // Extract rows\n    const trRegex = /<tr[^>]*>([\\s\\S]*?)<\\/tr>/gi;\n    let trMatch;\n    let rowIndex = 0;\n    \n    while ((trMatch = trRegex.exec(tableHtml)) !== null) {\n      const trHtml = trMatch[1];\n      const cells = [];\n      const tdRegex = /<td[^>]*>([\\s\\S]*?)<\\/td>/gi;\n      let tdMatch;\n      \n      while ((tdMatch = tdRegex.exec(trHtml)) !== null) {\n        cells.push(tdMatch[1].replace(/<[^>]+>/g, '').trim());\n      }\n      \n      if (cells.length > 0) {\n        const row = {};\n        cells.forEach((cell, i) => {\n          const key = headers[i] || `col_${i}`;\n          row[key] = cell;\n        });\n        rows.push(row);\n      }\n      rowIndex++;\n    }\n    \n    if (rows.length > 0) {\n      tables.push({ headers, rows, rowCount: rows.length });\n    }\n  }\n  \n  // ─── Extract links ─────────────────────────────────────────\n  const links = [];\n  const linkRegex = /<a[^>]+href=[\"']([^\"']+)[\"'][^>]*>([\\s\\S]*?)<\\/a>/gi;\n  let linkMatch;\n  const seenLinks = new Set();\n  \n  while ((linkMatch = linkRegex.exec(html)) !== null) {\n    const href = linkMatch[1];\n    const text = linkMatch[2].replace(/<[^>]+>/g, '').trim();\n    \n    if (seenLinks.has(href)) continue;\n    if (href.startsWith('javascript:') || href === '#') continue;\n    seenLinks.add(href);\n    \n    const isFile = /\\.(pdf|doc|docx|xls|xlsx|csv|zip|png|jpg|jpeg|gif|tif|dwg)$/i.test(href);\n    \n    links.push({ href, text: text.substring(0, 200), isFile });\n  }\n  \n  // ─── Extract images ────────────────────────────────────────\n  const images = [];\n  const imgRegex = /<img[^>]+src=[\"']([^\"']+)[\"'][^>]*>/gi;\n  let imgMatch;\n  const seenImages = new Set();\n  \n  while ((imgMatch = imgRegex.exec(html)) !== null) {\n    const src = imgMatch[1];\n    if (seenImages.has(src)) continue;\n    if (src.startsWith('data:')) continue;\n    if (src.includes('favicon') || src.includes('/icons/')) continue;\n    seenImages.add(src);\n    \n    const altMatch = imgMatch[0].match(/alt=[\"']([^\"']*)[\"']/);\n    images.push({ src, alt: altMatch ? altMatch[1] : '' });\n  }\n  \n  results.push({\n    json: {\n      section: sectionName,\n      url,\n      status: 'success',\n      tableCount: tables.length,\n      totalRows: tables.reduce((s, t) => s + t.rowCount, 0),\n      linkCount: links.length,\n      fileCount: links.filter(l => l.isFile).length,\n      imageCount: images.length,\n      tables,\n      links,\n      images,\n      rawHtml: html\n    }\n  });\n}\n\nreturn results;"
+      },
+      "id": "parse-html",
+      "name": "Parse HTML & Extract Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [880, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Convert extracted table data to CSV format\nconst items = $input.all();\nconst csvFiles = [];\n\nfor (const item of items) {\n  const section = item.json.section;\n  const tables = item.json.tables || [];\n  \n  for (let i = 0; i < tables.length; i++) {\n    const table = tables[i];\n    if (!table.rows || table.rows.length === 0) continue;\n    \n    const headers = table.headers.length > 0 \n      ? table.headers \n      : Object.keys(table.rows[0]);\n    \n    // Build CSV string\n    const csvRows = [headers.map(h => `\"${h.replace(/\"/g, '\"\"')}\"`).join(',')];\n    \n    for (const row of table.rows) {\n      const values = headers.map(h => {\n        const val = (row[h] || '').replace(/\"/g, '\"\"').replace(/\\n/g, ' ');\n        return `\"${val}\"`;\n      });\n      csvRows.push(values.join(','));\n    }\n    \n    const csvContent = csvRows.join('\\n');\n    const filename = tables.length > 1 \n      ? `${section}_table${i + 1}.csv` \n      : `${section}.csv`;\n    \n    csvFiles.push({\n      json: {\n        filename,\n        section,\n        rowCount: table.rows.length,\n        content: csvContent,\n        driveFolderId: item.json.driveFolderId || items[0]?.json?.driveFolderId\n      }\n    });\n  }\n  \n  // Also save raw JSON data\n  if (tables.length > 0 || (item.json.links && item.json.links.length > 0)) {\n    csvFiles.push({\n      json: {\n        filename: `${section}_full_data.json`,\n        section,\n        content: JSON.stringify({\n          section,\n          url: item.json.url,\n          tables: item.json.tables,\n          links: item.json.links,\n          images: item.json.images\n        }, null, 2),\n        driveFolderId: item.json.driveFolderId || items[0]?.json?.driveFolderId\n      }\n    });\n  }\n}\n\nif (csvFiles.length === 0) {\n  return [{ json: { message: 'No table data found to export', driveFolderId: items[0]?.json?.driveFolderId } }];\n}\n\nreturn csvFiles;"
+      },
+      "id": "convert-to-csv",
+      "name": "Convert to CSV",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1100, 200]
+    },
+    {
+      "parameters": {
+        "name": "={{ $json.filename }}",
+        "driveId": "={{ $json.driveFolderId }}",
+        "folderId": "={{ $json.driveFolderId }}",
+        "options": {
+          "appProperties": {}
+        }
+      },
+      "id": "upload-data-drive",
+      "name": "Upload Data to Drive",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [1320, 200],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "CONFIGURE_ME",
+          "name": "Google Drive - Configure Me"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract file download URLs from all sections\nconst items = $input.all();\nconst fileDownloads = [];\n\nfor (const item of items) {\n  const links = item.json.links || [];\n  const baseUrl = item.json.url ? new URL(item.json.url).origin : 'https://www.proedgebuild.com';\n  const cookie = item.json.sessionCookie;\n  \n  const fileLinks = links.filter(l => l.isFile);\n  \n  for (const link of fileLinks) {\n    let href = link.href;\n    // Make absolute URL\n    if (href.startsWith('/')) href = baseUrl + href;\n    else if (!href.startsWith('http')) href = baseUrl + '/' + href;\n    \n    fileDownloads.push({\n      json: {\n        url: href,\n        filename: link.text || href.split('/').pop() || 'file',\n        section: item.json.section,\n        sessionCookie: cookie,\n        driveFolderId: item.json.driveFolderId\n      }\n    });\n  }\n}\n\nif (fileDownloads.length === 0) {\n  return [{ json: { message: 'No files to download' } }];\n}\n\nreturn fileDownloads;"
+      },
+      "id": "extract-file-urls",
+      "name": "Extract File URLs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1100, 400]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Cookie",
+              "value": "={{ $json.sessionCookie }}"
+            },
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
+            }
+          ]
+        },
+        "options": {
+          "redirect": {
+            "redirect": {
+              "followRedirects": true,
+              "maxRedirects": 5
+            }
+          },
+          "response": {
+            "response": {
+              "fullResponse": false,
+              "responseFormat": "file"
+            }
+          },
+          "timeout": 30000
+        }
+      },
+      "id": "download-files",
+      "name": "Download Files",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1320, 400],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "name": "={{ $json.filename }}",
+        "driveId": "={{ $json.driveFolderId }}",
+        "folderId": "={{ $json.driveFolderId }}",
+        "options": {}
+      },
+      "id": "upload-files-drive",
+      "name": "Upload Files to Drive",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [1540, 400],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "CONFIGURE_ME",
+          "name": "Google Drive - Configure Me"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract image URLs for download\nconst items = $input.all();\nconst imageDownloads = [];\n\nfor (const item of items) {\n  const images = item.json.images || [];\n  const baseUrl = item.json.url ? new URL(item.json.url).origin : 'https://www.proedgebuild.com';\n  const cookie = item.json.sessionCookie;\n  \n  for (const img of images) {\n    let src = img.src;\n    if (src.startsWith('/')) src = baseUrl + src;\n    else if (!src.startsWith('http')) src = baseUrl + '/' + src;\n    \n    const filename = img.alt || src.split('/').pop().split('?')[0] || 'image.png';\n    \n    imageDownloads.push({\n      json: {\n        url: src,\n        filename: filename.replace(/[^a-zA-Z0-9._-]/g, '_'),\n        section: item.json.section,\n        sessionCookie: cookie,\n        driveFolderId: item.json.driveFolderId\n      }\n    });\n  }\n}\n\nif (imageDownloads.length === 0) {\n  return [{ json: { message: 'No images to download' } }];\n}\n\nreturn imageDownloads;"
+      },
+      "id": "extract-image-urls",
+      "name": "Extract Image URLs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1100, 600]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Cookie",
+              "value": "={{ $json.sessionCookie }}"
+            },
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
+            }
+          ]
+        },
+        "options": {
+          "redirect": {
+            "redirect": {
+              "followRedirects": true,
+              "maxRedirects": 5
+            }
+          },
+          "response": {
+            "response": {
+              "fullResponse": false,
+              "responseFormat": "file"
+            }
+          },
+          "timeout": 30000
+        }
+      },
+      "id": "download-images",
+      "name": "Download Images",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1320, 600],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "name": "={{ $json.filename }}",
+        "driveId": "={{ $json.driveFolderId }}",
+        "folderId": "={{ $json.driveFolderId }}",
+        "options": {}
+      },
+      "id": "upload-images-drive",
+      "name": "Upload Images to Drive",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [1540, 600],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "CONFIGURE_ME",
+          "name": "Google Drive - Configure Me"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generate final summary\nconst items = $input.all();\nlet totalTables = 0;\nlet totalRows = 0;\nlet totalFiles = 0;\nlet totalImages = 0;\nlet sections = 0;\n\nfor (const item of items) {\n  if (item.json.status === 'success') {\n    sections++;\n    totalTables += item.json.tableCount || 0;\n    totalRows += item.json.totalRows || 0;\n    totalFiles += item.json.fileCount || 0;\n    totalImages += item.json.imageCount || 0;\n  }\n}\n\nreturn [{\n  json: {\n    exportComplete: true,\n    timestamp: new Date().toISOString(),\n    summary: {\n      sectionsProcessed: sections,\n      tablesFound: totalTables,\n      totalDataRows: totalRows,\n      filesFound: totalFiles,\n      imagesFound: totalImages\n    },\n    message: `Export complete! Processed ${sections} sections with ${totalRows} data rows, ${totalFiles} files, and ${totalImages} images.`\n  }\n}];"
+      },
+      "id": "summary",
+      "name": "Export Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1760, 300]
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          { "node": "Config", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          { "node": "Split Sections", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Split Sections": {
+      "main": [
+        [
+          { "node": "Fetch Page", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Fetch Page": {
+      "main": [
+        [
+          { "node": "Parse HTML & Extract Data", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Parse HTML & Extract Data": {
+      "main": [
+        [
+          { "node": "Convert to CSV", "type": "main", "index": 0 },
+          { "node": "Extract File URLs", "type": "main", "index": 0 },
+          { "node": "Extract Image URLs", "type": "main", "index": 0 },
+          { "node": "Export Summary", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Convert to CSV": {
+      "main": [
+        [
+          { "node": "Upload Data to Drive", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Extract File URLs": {
+      "main": [
+        [
+          { "node": "Download Files", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Download Files": {
+      "main": [
+        [
+          { "node": "Upload Files to Drive", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Extract Image URLs": {
+      "main": [
+        [
+          { "node": "Download Images", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Download Images": {
+      "main": [
+        [
+          { "node": "Upload Images to Drive", "type": "main", "index": 0 }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "ProEdge Build",
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "name": "Data Migration",
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z"
+    }
+  ]
+}
