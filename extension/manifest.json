@@ -1,13 +1,14 @@
 {
   "manifest_version": 3,
   "name": "Mr. Better Boss - JobTread AI Assistant",
-  "version": "2.0.0",
-  "description": "AI business analyst for JobTread — profitability insights, cash flow aging, project health, and more. Built by Better Boss.",
+  "version": "3.0.0",
+  "description": "AI business analyst for JobTread — profitability insights, cash flow aging, project health, document auto-fill, and more. Built by Better Boss.",
   "permissions": [
     "storage",
     "activeTab",
     "scripting",
-    "tabs"
+    "tabs",
+    "clipboardWrite"
   ],
   "host_permissions": [
     "https://app.jobtread.com/*",

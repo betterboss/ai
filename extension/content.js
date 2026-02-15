@@ -108,11 +108,63 @@
         sendResponse(extractTableAsJSON());
         break;
 
+      case 'FILL_FORM_FIELDS':
+        sendResponse(fillFormFields(message.fieldMap));
+        break;
+
       default:
         sendResponse({ error: 'Unknown action' });
     }
     return true; // async response
   });
+
+  // ── Form Auto-Fill ───────────────────────────────────────
+
+  function fillFormFields(fieldMap) {
+    if (!fieldMap || typeof fieldMap !== 'object') {
+      return { error: 'No field map provided' };
+    }
+
+    var filled = 0;
+    var skipped = 0;
+    var inputs = document.querySelectorAll('input, textarea, select');
+
+    for (var i = 0; i < inputs.length; i++) {
+      var el = inputs[i];
+      var name = (el.name || el.id || el.getAttribute('aria-label') || el.placeholder || '').toLowerCase();
+      if (!name) { skipped++; continue; }
+
+      var matched = false;
+      var keys = Object.keys(fieldMap);
+      for (var k = 0; k < keys.length; k++) {
+        var fieldKey = keys[k].toLowerCase();
+        if (name.indexOf(fieldKey) !== -1 || fieldKey.indexOf(name) !== -1) {
+          if (el.tagName === 'SELECT') {
+            var opts = el.querySelectorAll('option');
+            for (var o = 0; o < opts.length; o++) {
+              if (opts[o].textContent.toLowerCase().indexOf(fieldMap[keys[k]].toLowerCase()) !== -1) {
+                el.value = opts[o].value;
+                matched = true;
+                break;
+              }
+            }
+          } else {
+            el.value = fieldMap[keys[k]];
+            matched = true;
+          }
+          if (matched) {
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+            filled++;
+            break;
+          }
+        }
+      }
+      if (!matched) skipped++;
+    }
+
+    return { filled: filled, skipped: skipped };
+  }
 
   // ── Page Interaction Helpers ────────────────────────────
 

@@ -14,6 +14,7 @@ async function init() {
 
   setupTabs();
   setupChat();
+  setupDocHelper();
   setupMemory();
   setupSettings();
   loadPageContext();
@@ -469,6 +470,7 @@ async function loadPageContext() {
     }
     currentContext = parsePageContext(ctx);
     updateSuggestions(currentContext);
+    updateDocAutoDetect(currentContext);
   } catch (e) {
     updateSuggestions({ type: 'none' });
   }
@@ -630,6 +632,248 @@ async function testConnection() {
     resultDiv.textContent = 'Error: ' + err.message;
   }
   btn.disabled = false;
+}
+
+// ── Document Helper ─────────────────────────────────────────
+
+var docHelperState = {
+  currentJobId: null,
+  currentFields: null,
+  activeSection: 'job',
+};
+
+function setupDocHelper() {
+  var searchInput = document.getElementById('docsSearchInput');
+  var searchBtn = document.getElementById('btnDocsSearch');
+
+  searchInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') docsSearch();
+  });
+  searchBtn.addEventListener('click', docsSearch);
+
+  document.getElementById('btnDocsBack').addEventListener('click', function() {
+    document.getElementById('docsJobPanel').style.display = 'none';
+    document.getElementById('docsSearchResults').style.display = 'none';
+    document.getElementById('docsEmpty').style.display = 'block';
+    docHelperState.currentJobId = null;
+    docHelperState.currentFields = null;
+  });
+
+  document.getElementById('btnCopyAll').addEventListener('click', copyAllFields);
+
+  document.getElementById('btnDocsAutoLoad').addEventListener('click', function() {
+    var jobId = this.dataset.jobId;
+    if (jobId) loadJobDetails(jobId);
+  });
+
+  // Section tabs
+  document.querySelectorAll('.docs-sec-tab').forEach(function(tab) {
+    tab.addEventListener('click', function() {
+      document.querySelectorAll('.docs-sec-tab').forEach(function(t) { t.classList.remove('active'); });
+      tab.classList.add('active');
+      docHelperState.activeSection = tab.dataset.section;
+      renderDocFields();
+    });
+  });
+}
+
+async function docsSearch() {
+  var query = document.getElementById('docsSearchInput').value.trim();
+  if (!query) return;
+
+  var resultsDiv = document.getElementById('docsSearchResults');
+  resultsDiv.style.display = 'block';
+  document.getElementById('docsEmpty').style.display = 'none';
+  document.getElementById('docsJobPanel').style.display = 'none';
+  resultsDiv.innerHTML = '<div class="docs-loading">Searching...</div>';
+
+  try {
+    var response = await chrome.runtime.sendMessage({ action: 'SEARCH_JOBS_QUICK', query: query });
+    if (response.error) {
+      resultsDiv.innerHTML = '<div class="docs-error">' + escapeHtml(response.error) + '</div>';
+      return;
+    }
+    if (!response.jobs || response.jobs.length === 0) {
+      resultsDiv.innerHTML = '<div class="docs-no-results">No jobs found for "' + escapeHtml(query) + '"</div>';
+      return;
+    }
+
+    var html = '';
+    for (var i = 0; i < response.jobs.length; i++) {
+      var job = response.jobs[i];
+      html += '<div class="docs-result-item" data-job-id="' + escapeHtml(job.id) + '">';
+      html += '<div class="docs-result-info">';
+      html += '<div class="docs-result-name">' + escapeHtml(job.name) + (job.number ? ' <span class="docs-result-num">#' + escapeHtml(String(job.number)) + '</span>' : '') + '</div>';
+      html += '<div class="docs-result-customer">' + escapeHtml(job.customer || '') + '</div>';
+      html += '</div>';
+      html += '<span class="docs-result-status ' + (job.status === 'Active' ? 'active' : 'closed') + '">' + escapeHtml(job.status) + '</span>';
+      html += '</div>';
+    }
+    resultsDiv.innerHTML = html;
+
+    // Click handlers
+    resultsDiv.querySelectorAll('.docs-result-item').forEach(function(item) {
+      item.addEventListener('click', function() {
+        loadJobDetails(this.dataset.jobId);
+      });
+    });
+  } catch (err) {
+    resultsDiv.innerHTML = '<div class="docs-error">Error: ' + escapeHtml(err.message) + '</div>';
+  }
+}
+
+async function loadJobDetails(jobId) {
+  var jobPanel = document.getElementById('docsJobPanel');
+  var resultsDiv = document.getElementById('docsSearchResults');
+  var emptyDiv = document.getElementById('docsEmpty');
+
+  resultsDiv.style.display = 'none';
+  emptyDiv.style.display = 'none';
+  jobPanel.style.display = 'block';
+
+  document.getElementById('docsJobTitle').textContent = 'Loading...';
+  document.getElementById('docsJobSubtitle').textContent = '';
+  document.getElementById('docsFieldsContainer').innerHTML = '<div class="docs-loading">Fetching job details...</div>';
+
+  try {
+    var response = await chrome.runtime.sendMessage({ action: 'FETCH_JOB_DETAILS', jobId: jobId });
+    if (response.error) {
+      document.getElementById('docsFieldsContainer').innerHTML = '<div class="docs-error">' + escapeHtml(response.error) + '</div>';
+      return;
+    }
+
+    docHelperState.currentJobId = jobId;
+    docHelperState.currentFields = response.fields;
+
+    var jobName = response.fields['Job Name'] || 'Job';
+    var jobNum = response.fields['Job Number'];
+    document.getElementById('docsJobTitle').textContent = jobName + (jobNum ? ' #' + jobNum : '');
+    document.getElementById('docsJobSubtitle').textContent = (response.fields['Customer Name'] || '') + ' | ' + (response.fields['Job Status'] || '');
+
+    renderDocFields();
+  } catch (err) {
+    document.getElementById('docsFieldsContainer').innerHTML = '<div class="docs-error">Error: ' + escapeHtml(err.message) + '</div>';
+  }
+}
+
+function renderDocFields() {
+  var container = document.getElementById('docsFieldsContainer');
+  var fields = docHelperState.currentFields;
+  if (!fields) return;
+
+  var sectionFields = getFieldsForSection(docHelperState.activeSection, fields);
+  var html = '';
+
+  for (var i = 0; i < sectionFields.length; i++) {
+    var f = sectionFields[i];
+    var value = f.value || '';
+    var hasValue = value.length > 0;
+    html += '<div class="docs-field ' + (hasValue ? 'has-value' : 'empty') + '" data-field-key="' + escapeHtml(f.key) + '" data-field-value="' + escapeHtml(value) + '">';
+    html += '<div class="docs-field-label">' + escapeHtml(f.key) + '</div>';
+    html += '<div class="docs-field-value">' + (hasValue ? escapeHtml(value) : '<span class="docs-field-empty">--</span>') + '</div>';
+    html += '<button class="docs-copy-btn" title="Copy to clipboard">' + (hasValue ? 'Copy' : '--') + '</button>';
+    html += '</div>';
+  }
+
+  if (sectionFields.length === 0) {
+    html = '<div class="docs-no-results">No fields in this section</div>';
+  }
+
+  container.innerHTML = html;
+
+  // Copy click handlers
+  container.querySelectorAll('.docs-field.has-value').forEach(function(field) {
+    field.addEventListener('click', function() {
+      var val = this.dataset.fieldValue;
+      copyToClipboard(val, this);
+    });
+  });
+}
+
+function getFieldsForSection(section, fields) {
+  var fieldDefs = {
+    job: ['Job Name', 'Job Number', 'Job Description', 'Job Start Date', 'Job End Date', 'Job Status'],
+    customer: ['Customer Name', 'Customer Email', 'Customer Phone', 'Customer Website', 'Customer Type',
+               'Contact Name', 'Contact Email', 'Contact Phone', 'Contact Title'],
+    addresses: ['Job Full Address', 'Job Address', 'Job Address 2', 'Job City', 'Job State', 'Job Zip',
+                'Customer Full Address', 'Customer Address', 'Customer Address 2', 'Customer City', 'Customer State', 'Customer Zip'],
+    financial: ['Total Estimated', 'Total Invoiced', 'Total Collected', 'Outstanding Balance'],
+    custom: [],
+  };
+
+  if (section === 'custom') {
+    // Return all CF: fields
+    var result = [];
+    var keys = Object.keys(fields);
+    for (var i = 0; i < keys.length; i++) {
+      if (keys[i].indexOf('CF: ') === 0) {
+        result.push({ key: keys[i].replace('CF: ', ''), value: fields[keys[i]] });
+      }
+    }
+    if (result.length === 0) {
+      result.push({ key: 'No custom fields found', value: '' });
+    }
+    return result;
+  }
+
+  var keys = fieldDefs[section] || [];
+  return keys.map(function(k) {
+    return { key: k, value: fields[k] || '' };
+  });
+}
+
+function copyToClipboard(text, element) {
+  if (!text) return;
+  navigator.clipboard.writeText(text).then(function() {
+    // Flash feedback
+    var btn = element.querySelector('.docs-copy-btn');
+    if (btn) {
+      var orig = btn.textContent;
+      btn.textContent = 'Copied!';
+      btn.classList.add('copied');
+      setTimeout(function() {
+        btn.textContent = orig;
+        btn.classList.remove('copied');
+      }, 1200);
+    }
+  }).catch(function(err) {
+    console.error('Copy failed:', err);
+  });
+}
+
+function copyAllFields() {
+  var fields = docHelperState.currentFields;
+  if (!fields) return;
+
+  var lines = [];
+  var keys = Object.keys(fields);
+  for (var i = 0; i < keys.length; i++) {
+    if (fields[keys[i]]) {
+      lines.push(keys[i] + ': ' + fields[keys[i]]);
+    }
+  }
+
+  var text = lines.join('\n');
+  navigator.clipboard.writeText(text).then(function() {
+    var btn = document.getElementById('btnCopyAll');
+    btn.textContent = 'Copied!';
+    setTimeout(function() { btn.textContent = 'Copy All'; }, 1500);
+  });
+}
+
+// Update doc helper when page context has a job ID
+function updateDocAutoDetect(ctx) {
+  var autoDiv = document.getElementById('docsAutoDetect');
+  var autoLabel = document.getElementById('docsAutoLabel');
+  var autoBtn = document.getElementById('btnDocsAutoLoad');
+
+  if (ctx.type === 'project' && ctx.jobId) {
+    autoDiv.style.display = 'flex';
+    autoLabel.textContent = 'Detected job on current page';
+    autoBtn.dataset.jobId = ctx.jobId;
+  } else {
+    autoDiv.style.display = 'none';
+  }
 }
 
 // ── Markdown Renderer ───────────────────────────────────────

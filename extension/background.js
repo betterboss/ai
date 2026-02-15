@@ -805,8 +805,304 @@ async function handleMessage(message) {
     case 'EXPORT_ALL':
       return Memory.exportAll();
 
+    case 'FETCH_JOB_DETAILS':
+      return fetchJobDetails(message.jobId);
+
+    case 'SEARCH_JOBS_QUICK':
+      return searchJobsQuick(message.query);
+
+    case 'FILL_PAGE_FIELDS':
+      return fillPageFields(message.tabId, message.fieldMap);
+
     default:
       return { error: 'Unknown action: ' + message.action };
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// DOCUMENT HELPER — Job + Customer data for form filling
+// ═══════════════════════════════════════════════════════════
+
+async function fetchJobDetails(jobId) {
+  var settings = await Memory.getSettings();
+  if (!settings.jobtreadToken) {
+    return { error: 'Set your JobTread grant key in Settings first.' };
+  }
+
+  try {
+    var data = await paveQuery(settings.jobtreadToken, {
+      job: {
+        $: { id: jobId },
+        id: {},
+        name: {},
+        number: {},
+        closedOn: {},
+        createdAt: {},
+        description: {},
+        startDate: {},
+        endDate: {},
+        account: {
+          id: {},
+          name: {},
+          type: {},
+          email: {},
+          phone: {},
+          website: {},
+          locations: {
+            $: { size: 10 },
+            nodes: {
+              id: {},
+              name: {},
+              address1: {},
+              address2: {},
+              city: {},
+              state: {},
+              postalCode: {},
+              country: {}
+            }
+          },
+          contacts: {
+            $: { size: 20 },
+            nodes: {
+              id: {},
+              name: {},
+              email: {},
+              phone: {},
+              title: {}
+            }
+          }
+        },
+        locations: {
+          $: { size: 10 },
+          nodes: {
+            id: {},
+            name: {},
+            address1: {},
+            address2: {},
+            city: {},
+            state: {},
+            postalCode: {},
+            country: {}
+          }
+        },
+        contacts: {
+          $: { size: 20 },
+          nodes: {
+            id: {},
+            name: {},
+            email: {},
+            phone: {},
+            title: {}
+          }
+        },
+        documents: {
+          $: { size: 50 },
+          nodes: {
+            id: {},
+            type: {},
+            status: {},
+            price: {},
+            cost: {},
+            amountPaid: {},
+            name: {},
+            number: {},
+            date: {}
+          }
+        },
+        customFields: {
+          $: { size: 50 },
+          nodes: {
+            id: {},
+            name: {},
+            value: {}
+          }
+        }
+      }
+    });
+
+    var job = data.job || {};
+    var account = job.account || {};
+    var jobLocations = (job.locations && job.locations.nodes) || [];
+    var accountLocations = (account.locations && account.locations.nodes) || [];
+    var jobContacts = (job.contacts && job.contacts.nodes) || [];
+    var accountContacts = (account.contacts && account.contacts.nodes) || [];
+    var docs = (job.documents && job.documents.nodes) || [];
+    var customFields = (job.customFields && job.customFields.nodes) || [];
+
+    // Build a flat field map for easy copy/paste
+    var primaryContact = jobContacts[0] || accountContacts[0] || {};
+    var jobAddress = jobLocations[0] || {};
+    var customerAddress = accountLocations[0] || {};
+
+    var fields = {
+      // Job Info
+      'Job Name': job.name || '',
+      'Job Number': job.number || '',
+      'Job Description': job.description || '',
+      'Job Start Date': job.startDate || '',
+      'Job End Date': job.endDate || '',
+      'Job Status': job.closedOn ? 'Closed' : 'Active',
+
+      // Customer Info
+      'Customer Name': account.name || '',
+      'Customer Email': account.email || '',
+      'Customer Phone': account.phone || '',
+      'Customer Website': account.website || '',
+      'Customer Type': account.type || '',
+
+      // Primary Contact
+      'Contact Name': primaryContact.name || '',
+      'Contact Email': primaryContact.email || '',
+      'Contact Phone': primaryContact.phone || '',
+      'Contact Title': primaryContact.title || '',
+
+      // Job Site Address
+      'Job Address': jobAddress.address1 || '',
+      'Job Address 2': jobAddress.address2 || '',
+      'Job City': jobAddress.city || '',
+      'Job State': jobAddress.state || '',
+      'Job Zip': jobAddress.postalCode || '',
+      'Job Full Address': formatAddress(jobAddress),
+
+      // Customer Address
+      'Customer Address': customerAddress.address1 || '',
+      'Customer Address 2': customerAddress.address2 || '',
+      'Customer City': customerAddress.city || '',
+      'Customer State': customerAddress.state || '',
+      'Customer Zip': customerAddress.postalCode || '',
+      'Customer Full Address': formatAddress(customerAddress),
+    };
+
+    // Add custom fields
+    for (var i = 0; i < customFields.length; i++) {
+      if (customFields[i].name && customFields[i].value) {
+        fields['CF: ' + customFields[i].name] = String(customFields[i].value);
+      }
+    }
+
+    // Document summaries
+    var estimates = docs.filter(function(d) { return d.type === 'customerOrder'; });
+    var invoices = docs.filter(function(d) { return d.type === 'customerInvoice'; });
+    var totalEstimated = estimates.filter(function(e) { return e.status === 'approved' || e.status === 'accepted'; })
+      .reduce(function(s, e) { return s + (e.price || 0); }, 0);
+    var totalInvoiced = invoices.reduce(function(s, i) { return s + (i.price || 0); }, 0);
+    var totalCollected = invoices.reduce(function(s, i) { return s + (i.amountPaid || 0); }, 0);
+
+    fields['Total Estimated'] = '$' + totalEstimated.toLocaleString();
+    fields['Total Invoiced'] = '$' + totalInvoiced.toLocaleString();
+    fields['Total Collected'] = '$' + totalCollected.toLocaleString();
+    fields['Outstanding Balance'] = '$' + (totalInvoiced - totalCollected).toLocaleString();
+
+    return {
+      jobId: job.id,
+      fields: fields,
+      allContacts: jobContacts.concat(accountContacts),
+      allLocations: jobLocations.concat(accountLocations),
+      documents: docs.map(function(d) {
+        return { name: d.name, number: d.number, type: d.type, status: d.status, price: d.price, date: d.date };
+      }),
+    };
+  } catch (err) {
+    return { error: err.message };
+  }
+}
+
+function formatAddress(loc) {
+  if (!loc || (!loc.address1 && !loc.city)) return '';
+  var parts = [];
+  if (loc.address1) parts.push(loc.address1);
+  if (loc.address2) parts.push(loc.address2);
+  var cityLine = [];
+  if (loc.city) cityLine.push(loc.city);
+  if (loc.state) cityLine.push(loc.state);
+  if (cityLine.length > 0) {
+    var cl = cityLine.join(', ');
+    if (loc.postalCode) cl += ' ' + loc.postalCode;
+    parts.push(cl);
+  }
+  return parts.join(', ');
+}
+
+async function searchJobsQuick(query) {
+  var settings = await Memory.getSettings();
+  if (!settings.jobtreadToken) {
+    return { error: 'Set your JobTread grant key in Settings first.' };
+  }
+
+  try {
+    var orgId = await getOrgId(settings.jobtreadToken);
+    var params = { size: 15, sortBy: [{ field: 'createdAt', order: 'desc' }] };
+    if (query) params.where = ['name', '~', query];
+    var data;
+    try {
+      data = await paveQuery(settings.jobtreadToken, {
+        organization: {
+          $: { id: orgId },
+          jobs: {
+            $: params,
+            nodes: {
+              id: {},
+              name: {},
+              number: {},
+              closedOn: {},
+              account: { name: {} }
+            }
+          }
+        }
+      });
+    } catch (e) {
+      // Fallback: fetch all and filter client-side
+      delete params.where;
+      data = await paveQuery(settings.jobtreadToken, {
+        organization: {
+          $: { id: orgId },
+          jobs: {
+            $: params,
+            nodes: {
+              id: {},
+              name: {},
+              number: {},
+              closedOn: {},
+              account: { name: {} }
+            }
+          }
+        }
+      });
+      if (query) {
+        var search = query.toLowerCase();
+        data.organization.jobs.nodes = (data.organization.jobs.nodes || []).filter(function(j) {
+          return (j.name && j.name.toLowerCase().indexOf(search) !== -1) ||
+                 (j.number && String(j.number).toLowerCase().indexOf(search) !== -1) ||
+                 (j.account && j.account.name && j.account.name.toLowerCase().indexOf(search) !== -1);
+        });
+      }
+    }
+    var items = (data.organization && data.organization.jobs && data.organization.jobs.nodes) || [];
+    return {
+      jobs: items.map(function(j) {
+        return {
+          id: j.id,
+          name: j.name,
+          number: j.number,
+          status: j.closedOn ? 'Closed' : 'Active',
+          customer: (j.account && j.account.name) || ''
+        };
+      })
+    };
+  } catch (err) {
+    return { error: err.message };
+  }
+}
+
+async function fillPageFields(tabId, fieldMap) {
+  try {
+    var results = await chrome.tabs.sendMessage(tabId, {
+      action: 'FILL_FORM_FIELDS',
+      fieldMap: fieldMap
+    });
+    return results;
+  } catch (err) {
+    return { error: 'Could not communicate with page: ' + err.message };
   }
 }
 
