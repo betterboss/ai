@@ -26,6 +26,7 @@
     <!-- Tab Bar -->
     <nav id="tabBar">
       <button class="tab active" data-tab="chat">💬 Chat</button>
+      <button class="tab" data-tab="docs">📋 Docs</button>
       <button class="tab" data-tab="settings">⚙️ Settings</button>
     </nav>
 
@@ -48,6 +49,51 @@
           <input type="text" id="chatInput" placeholder="Ask about your business..." autocomplete="off">
           <button id="btnSend" class="send-btn">➤</button>
         </div>
+      </div>
+    </div>
+
+    <!-- Docs Panel — Document Helper -->
+    <div id="panel-docs" class="panel">
+      <div class="docs-search-area">
+        <div class="docs-search-wrap">
+          <input type="text" id="docsSearchInput" placeholder="Search jobs by name, number, or customer..." autocomplete="off">
+          <button id="btnDocsSearch" class="docs-search-btn">Search</button>
+        </div>
+        <div id="docsAutoDetect" class="docs-auto-detect" style="display:none;">
+          <span id="docsAutoLabel"></span>
+          <button id="btnDocsAutoLoad" class="small-btn primary">Load</button>
+        </div>
+      </div>
+
+      <div id="docsSearchResults" class="docs-results" style="display:none;"></div>
+
+      <div id="docsJobPanel" class="docs-job-panel" style="display:none;">
+        <div class="docs-job-header">
+          <div>
+            <div class="docs-job-title" id="docsJobTitle"></div>
+            <div class="docs-job-subtitle" id="docsJobSubtitle"></div>
+          </div>
+          <div class="docs-job-actions">
+            <button class="small-btn primary" id="btnCopyAll" title="Copy all fields">Copy All</button>
+            <button class="small-btn" id="btnDocsBack" title="Back to search">Back</button>
+          </div>
+        </div>
+
+        <div class="docs-section-tabs">
+          <button class="docs-sec-tab active" data-section="job">Job</button>
+          <button class="docs-sec-tab" data-section="customer">Customer</button>
+          <button class="docs-sec-tab" data-section="addresses">Addresses</button>
+          <button class="docs-sec-tab" data-section="financial">Financial</button>
+          <button class="docs-sec-tab" data-section="custom">Custom</button>
+        </div>
+
+        <div id="docsFieldsContainer" class="docs-fields-container"></div>
+      </div>
+
+      <div id="docsEmpty" class="docs-empty">
+        <div class="docs-empty-icon">📋</div>
+        <p>Search for a job or navigate to one in JobTread to pull info for your documents.</p>
+        <p class="sub">Click any field to copy it to your clipboard.</p>
       </div>
     </div>
 
