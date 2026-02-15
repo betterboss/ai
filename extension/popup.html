@@ -26,6 +26,7 @@
     <!-- Tab Bar -->
     <nav id="tabBar">
       <button class="tab active" data-tab="chat">💬 Chat</button>
+      <button class="tab" data-tab="docs">📋 Docs</button>
       <button class="tab" data-tab="settings">⚙️ Settings</button>
     </nav>
 
@@ -47,6 +48,54 @@
         <div class="chat-input-wrap">
           <input type="text" id="chatInput" placeholder="Ask about your business..." autocomplete="off">
           <button id="btnSend" class="send-btn">➤</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Docs Panel -->
+    <div id="panel-docs" class="panel">
+      <!-- Field Source -->
+      <div class="docs-toolbar">
+        <div class="docs-toolbar-info">
+          <span class="docs-job-label" id="docsJobLabel">No job loaded</span>
+        </div>
+        <button class="small-btn primary" id="btnLoadFields">Load Fields</button>
+      </div>
+
+      <!-- Fields + Template split view -->
+      <div class="docs-body">
+        <!-- Left: Fields -->
+        <div class="docs-fields-section">
+          <div class="docs-section-header">
+            <span>Fields</span>
+            <input type="text" id="fieldSearch" class="docs-search" placeholder="Search fields...">
+          </div>
+          <div id="fieldsList" class="docs-fields-list">
+            <div class="docs-empty">Navigate to a JobTread project and click <strong>Load Fields</strong></div>
+          </div>
+        </div>
+
+        <!-- Right: Template -->
+        <div class="docs-template-section">
+          <div class="docs-section-header">
+            <span>Template</span>
+            <div class="docs-template-actions">
+              <select id="templateSelect" class="docs-select">
+                <option value="">-- New Template --</option>
+              </select>
+              <button class="small-btn" id="btnSaveTemplate" title="Save template">Save</button>
+              <button class="small-btn danger" id="btnDeleteTemplate" title="Delete template">Del</button>
+            </div>
+          </div>
+          <div class="docs-template-name-row">
+            <input type="text" id="templateName" class="docs-input" placeholder="Template name...">
+          </div>
+          <textarea id="templateEditor" class="docs-textarea" placeholder="Write your template here...&#10;&#10;Use {{field_key}} to insert field values.&#10;Example: Dear {{contact_name}},&#10;&#10;We are writing regarding project {{job_name}} at {{address_full}}."></textarea>
+          <div class="docs-output-header">
+            <span>Output</span>
+            <button class="small-btn primary" id="btnCopyOutput" title="Copy filled template">Copy</button>
+          </div>
+          <div id="templateOutput" class="docs-output">Fill in a template above to see the output here.</div>
         </div>
       </div>
     </div>

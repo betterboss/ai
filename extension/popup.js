@@ -14,6 +14,7 @@ async function init() {
 
   setupTabs();
   setupChat();
+  setupDocs();
   setupMemory();
   setupSettings();
   loadPageContext();
@@ -368,6 +369,285 @@ function renderBooking(result) {
   div.appendChild(btn);
   div.appendChild(note);
   return div;
+}
+
+// ── Docs Tab ────────────────────────────────────────────────
+
+var loadedFields = [];
+var currentTemplateId = null;
+
+function setupDocs() {
+  document.getElementById('btnLoadFields').addEventListener('click', loadJobFields);
+  document.getElementById('btnSaveTemplate').addEventListener('click', saveCurrentTemplate);
+  document.getElementById('btnDeleteTemplate').addEventListener('click', deleteCurrentTemplate);
+  document.getElementById('btnCopyOutput').addEventListener('click', copyOutput);
+  document.getElementById('templateSelect').addEventListener('change', loadSelectedTemplate);
+  document.getElementById('templateEditor').addEventListener('input', updateOutput);
+  document.getElementById('fieldSearch').addEventListener('input', filterFields);
+
+  loadTemplateList();
+}
+
+async function loadJobFields() {
+  var btn = document.getElementById('btnLoadFields');
+  var label = document.getElementById('docsJobLabel');
+  btn.disabled = true;
+  btn.textContent = 'Loading...';
+  label.textContent = 'Fetching fields...';
+
+  try {
+    // Get current job ID from page context
+    var ctxResponse = await chrome.runtime.sendMessage({ action: 'GET_PAGE_CONTEXT' });
+    var ctx = ctxResponse.context || '';
+    var jobMatch = ctx.match(/Job ID: ([^\n]+)/);
+    var jobId = jobMatch ? jobMatch[1].trim() : null;
+
+    if (!jobId) {
+      label.textContent = 'No job detected — navigate to a project page';
+      btn.disabled = false;
+      btn.textContent = 'Load Fields';
+      return;
+    }
+
+    var result = await chrome.runtime.sendMessage({ action: 'FETCH_JOB_FIELDS', jobId: jobId });
+    if (result.error) {
+      label.textContent = 'Error: ' + result.error;
+      btn.disabled = false;
+      btn.textContent = 'Load Fields';
+      return;
+    }
+
+    loadedFields = result.fields || [];
+    label.textContent = escapeHtml(result.jobName) + ' (' + loadedFields.length + ' fields)';
+    renderFields(loadedFields);
+    updateOutput();
+  } catch (err) {
+    label.textContent = 'Error: ' + err.message;
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Load Fields';
+}
+
+function renderFields(fields) {
+  var container = document.getElementById('fieldsList');
+  if (fields.length === 0) {
+    container.innerHTML = '<div class="docs-empty">No fields found</div>';
+    return;
+  }
+
+  var html = '';
+  var currentGroup = '';
+
+  for (var i = 0; i < fields.length; i++) {
+    var f = fields[i];
+    if (f.group !== currentGroup) {
+      currentGroup = f.group;
+      html += '<div class="docs-group-header">' + (currentGroup === 'custom' ? 'Custom Fields' : 'Standard Fields') + '</div>';
+    }
+    var displayValue = f.value || '<em>empty</em>';
+    if (displayValue.length > 60) displayValue = escapeHtml(displayValue.slice(0, 57)) + '...';
+    else if (f.value) displayValue = escapeHtml(displayValue);
+
+    html += '<div class="docs-field-row" data-key="' + escapeHtml(f.key) + '">' +
+      '<div class="docs-field-info">' +
+        '<span class="docs-field-label">' + escapeHtml(f.label) + '</span>' +
+        '<span class="docs-field-value">' + displayValue + '</span>' +
+      '</div>' +
+      '<div class="docs-field-actions">' +
+        '<button class="docs-field-btn insert-btn" data-key="' + escapeHtml(f.key) + '" title="Insert {{' + escapeHtml(f.key) + '}} into template">+</button>' +
+        '<button class="docs-field-btn copy-btn" data-value="' + escapeHtml(f.value || '') + '" title="Copy value">Copy</button>' +
+      '</div>' +
+    '</div>';
+  }
+
+  container.innerHTML = html;
+
+  // Bind insert buttons
+  container.querySelectorAll('.insert-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var key = btn.dataset.key;
+      var editor = document.getElementById('templateEditor');
+      var pos = editor.selectionStart;
+      var text = editor.value;
+      var tag = '{{' + key + '}}';
+      editor.value = text.slice(0, pos) + tag + text.slice(pos);
+      editor.focus();
+      editor.selectionStart = editor.selectionEnd = pos + tag.length;
+      updateOutput();
+      showBtnFeedback(btn, '+', 'Done');
+    });
+  });
+
+  // Bind copy buttons
+  container.querySelectorAll('.copy-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var val = btn.dataset.value;
+      navigator.clipboard.writeText(val).then(function() {
+        showBtnFeedback(btn, 'Copy', 'OK!');
+      });
+    });
+  });
+}
+
+function filterFields() {
+  var search = document.getElementById('fieldSearch').value.toLowerCase().trim();
+  if (!search) {
+    renderFields(loadedFields);
+    return;
+  }
+  var filtered = loadedFields.filter(function(f) {
+    return f.label.toLowerCase().indexOf(search) !== -1 ||
+           f.key.toLowerCase().indexOf(search) !== -1 ||
+           (f.value && f.value.toLowerCase().indexOf(search) !== -1);
+  });
+  renderFields(filtered);
+}
+
+function updateOutput() {
+  var template = document.getElementById('templateEditor').value;
+  var output = document.getElementById('templateOutput');
+
+  if (!template.trim()) {
+    output.innerHTML = '<span class="docs-empty-inline">Fill in a template above to see the output here.</span>';
+    return;
+  }
+
+  // Build field map
+  var fieldMap = {};
+  for (var i = 0; i < loadedFields.length; i++) {
+    fieldMap[loadedFields[i].key] = loadedFields[i].value || '';
+  }
+
+  // Replace placeholders
+  var filled = template.replace(/\{\{(\w+)\}\}/g, function(match, key) {
+    if (fieldMap.hasOwnProperty(key)) {
+      return fieldMap[key];
+    }
+    return match; // leave unresolved placeholders as-is
+  });
+
+  // Highlight unresolved placeholders
+  var html = escapeHtml(filled).replace(/\{\{(\w+)\}\}/g, '<span class="docs-unresolved">{{$1}}</span>');
+  // Preserve line breaks
+  html = html.replace(/\n/g, '<br>');
+  output.innerHTML = html;
+}
+
+function copyOutput() {
+  var template = document.getElementById('templateEditor').value;
+  var fieldMap = {};
+  for (var i = 0; i < loadedFields.length; i++) {
+    fieldMap[loadedFields[i].key] = loadedFields[i].value || '';
+  }
+  var filled = template.replace(/\{\{(\w+)\}\}/g, function(match, key) {
+    if (fieldMap.hasOwnProperty(key)) {
+      return fieldMap[key];
+    }
+    return match;
+  });
+
+  navigator.clipboard.writeText(filled).then(function() {
+    var btn = document.getElementById('btnCopyOutput');
+    showBtnFeedback(btn, 'Copy', 'Copied!');
+  });
+}
+
+// Template management
+async function loadTemplateList() {
+  try {
+    var response = await chrome.runtime.sendMessage({ action: 'GET_TEMPLATES' });
+    var templates = response.templates || [];
+    var select = document.getElementById('templateSelect');
+    select.innerHTML = '<option value="">-- New Template --</option>';
+    for (var i = 0; i < templates.length; i++) {
+      var opt = document.createElement('option');
+      opt.value = templates[i].id;
+      opt.textContent = templates[i].name;
+      select.appendChild(opt);
+    }
+  } catch (e) {
+    console.error('[BetterBoss] Failed to load templates:', e);
+  }
+}
+
+function loadSelectedTemplate() {
+  var select = document.getElementById('templateSelect');
+  var id = select.value;
+  if (!id) {
+    currentTemplateId = null;
+    document.getElementById('templateName').value = '';
+    document.getElementById('templateEditor').value = '';
+    updateOutput();
+    return;
+  }
+
+  chrome.runtime.sendMessage({ action: 'GET_TEMPLATES' }, function(response) {
+    var templates = response.templates || [];
+    var tpl = templates.find(function(t) { return t.id === id; });
+    if (tpl) {
+      currentTemplateId = tpl.id;
+      document.getElementById('templateName').value = tpl.name;
+      document.getElementById('templateEditor').value = tpl.content;
+      updateOutput();
+    }
+  });
+}
+
+async function saveCurrentTemplate() {
+  var name = document.getElementById('templateName').value.trim();
+  var content = document.getElementById('templateEditor').value;
+
+  if (!name) {
+    document.getElementById('templateName').focus();
+    document.getElementById('templateName').style.borderColor = '#ef4444';
+    setTimeout(function() { document.getElementById('templateName').style.borderColor = ''; }, 2000);
+    return;
+  }
+
+  var template = { name: name, content: content };
+  if (currentTemplateId) template.id = currentTemplateId;
+
+  var response = await chrome.runtime.sendMessage({ action: 'SAVE_TEMPLATE', template: template });
+  if (!currentTemplateId && response.templates) {
+    // Find the newly created template
+    var newest = response.templates[response.templates.length - 1];
+    if (newest) currentTemplateId = newest.id;
+  }
+
+  loadTemplateList();
+
+  // Restore selection
+  if (currentTemplateId) {
+    setTimeout(function() {
+      document.getElementById('templateSelect').value = currentTemplateId;
+    }, 100);
+  }
+
+  var btn = document.getElementById('btnSaveTemplate');
+  showBtnFeedback(btn, 'Save', 'Saved!');
+}
+
+async function deleteCurrentTemplate() {
+  if (!currentTemplateId) return;
+  if (!confirm('Delete this template?')) return;
+
+  await chrome.runtime.sendMessage({ action: 'DELETE_TEMPLATE', id: currentTemplateId });
+  currentTemplateId = null;
+  document.getElementById('templateName').value = '';
+  document.getElementById('templateEditor').value = '';
+  document.getElementById('templateSelect').value = '';
+  updateOutput();
+  loadTemplateList();
+}
+
+function showBtnFeedback(btn, originalText, feedbackText) {
+  btn.textContent = feedbackText;
+  btn.classList.add('feedback');
+  setTimeout(function() {
+    btn.textContent = originalText;
+    btn.classList.remove('feedback');
+  }, 1200);
 }
 
 // ── Smart Suggestions ───────────────────────────────────────

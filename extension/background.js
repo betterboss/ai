@@ -10,6 +10,8 @@ const STORAGE_KEYS = {
   NOTES: 'bb_notes',
   SETTINGS: 'bb_settings',
   CONTEXT: 'bb_context',
+  TEMPLATES: 'bb_templates',
+  CACHED_FIELDS: 'bb_cached_fields',
 };
 
 const MAX_CONVERSATION_MESSAGES = 50;
@@ -92,6 +94,40 @@ const Memory = {
   async getPageContext() {
     const data = await chrome.storage.local.get(STORAGE_KEYS.CONTEXT);
     return data[STORAGE_KEYS.CONTEXT] || 'Not on a JobTread page';
+  },
+
+  async getTemplates() {
+    const data = await chrome.storage.local.get(STORAGE_KEYS.TEMPLATES);
+    return data[STORAGE_KEYS.TEMPLATES] || [];
+  },
+
+  async saveTemplate(template) {
+    const templates = await Memory.getTemplates();
+    var existing = templates.findIndex(function(t) { return t.id === template.id; });
+    if (existing >= 0) {
+      templates[existing] = template;
+    } else {
+      template.id = 'tpl_' + Date.now();
+      templates.push(template);
+    }
+    await chrome.storage.local.set({ [STORAGE_KEYS.TEMPLATES]: templates });
+    return templates;
+  },
+
+  async deleteTemplate(id) {
+    var templates = await Memory.getTemplates();
+    templates = templates.filter(function(t) { return t.id !== id; });
+    await chrome.storage.local.set({ [STORAGE_KEYS.TEMPLATES]: templates });
+    return templates;
+  },
+
+  async setCachedFields(jobId, fields) {
+    await chrome.storage.local.set({ [STORAGE_KEYS.CACHED_FIELDS]: { jobId: jobId, fields: fields, cachedAt: Date.now() } });
+  },
+
+  async getCachedFields() {
+    const data = await chrome.storage.local.get(STORAGE_KEYS.CACHED_FIELDS);
+    return data[STORAGE_KEYS.CACHED_FIELDS] || null;
   },
 
   async exportAll() {
@@ -750,6 +786,150 @@ async function executeSkillAction(grantKey, skill, param) {
 }
 
 // ═══════════════════════════════════════════════════════════
+// JOB FIELD FETCHER (for Docs tab)
+// ═══════════════════════════════════════════════════════════
+
+async function fetchJobFields(grantKey, jobId) {
+  // Fetch standard fields, custom field values, and account/contact info
+  var data = await paveQuery(grantKey, {
+    job: {
+      $: { id: jobId },
+      id: {},
+      name: {},
+      number: {},
+      description: {},
+      startDate: {},
+      endDate: {},
+      closedOn: {},
+      createdAt: {},
+      address: {
+        line1: {},
+        line2: {},
+        city: {},
+        state: {},
+        postalCode: {},
+        country: {}
+      },
+      account: {
+        id: {},
+        name: {},
+        type: {}
+      },
+      primaryContact: {
+        id: {},
+        name: {},
+        email: {},
+        phone: {},
+        title: {}
+      },
+      customFieldValues: {
+        nodes: {
+          id: {},
+          value: {},
+          customField: {
+            id: {},
+            name: {},
+            type: {}
+          }
+        }
+      },
+      documents: {
+        $: { size: 50, sortBy: [{ field: 'createdAt', order: 'desc' }] },
+        nodes: {
+          id: {},
+          type: {},
+          status: {},
+          price: {},
+          cost: {},
+          name: {},
+          number: {}
+        }
+      }
+    }
+  });
+
+  var job = data.job || {};
+  var fields = [];
+
+  // Standard fields
+  var stdFields = [
+    { key: 'job_name', label: 'Job Name', value: job.name || '' },
+    { key: 'job_number', label: 'Job Number', value: job.number || '' },
+    { key: 'job_description', label: 'Description', value: job.description || '' },
+    { key: 'job_status', label: 'Status', value: job.closedOn ? 'Closed' : 'Active' },
+    { key: 'start_date', label: 'Start Date', value: job.startDate || '' },
+    { key: 'end_date', label: 'End Date', value: job.endDate || '' },
+    { key: 'created_date', label: 'Created', value: job.createdAt ? job.createdAt.slice(0, 10) : '' },
+  ];
+
+  // Address fields
+  var addr = job.address || {};
+  stdFields.push({ key: 'address_line1', label: 'Address Line 1', value: addr.line1 || '' });
+  stdFields.push({ key: 'address_line2', label: 'Address Line 2', value: addr.line2 || '' });
+  stdFields.push({ key: 'address_city', label: 'City', value: addr.city || '' });
+  stdFields.push({ key: 'address_state', label: 'State', value: addr.state || '' });
+  stdFields.push({ key: 'address_zip', label: 'Zip Code', value: addr.postalCode || '' });
+  stdFields.push({ key: 'address_country', label: 'Country', value: addr.country || '' });
+  var fullAddr = [addr.line1, addr.line2, addr.city, addr.state, addr.postalCode].filter(Boolean).join(', ');
+  stdFields.push({ key: 'address_full', label: 'Full Address', value: fullAddr });
+
+  // Account fields
+  var acct = job.account || {};
+  stdFields.push({ key: 'account_name', label: 'Account Name', value: acct.name || '' });
+  stdFields.push({ key: 'account_type', label: 'Account Type', value: acct.type || '' });
+
+  // Primary contact fields
+  var pc = job.primaryContact || {};
+  stdFields.push({ key: 'contact_name', label: 'Contact Name', value: pc.name || '' });
+  stdFields.push({ key: 'contact_email', label: 'Contact Email', value: pc.email || '' });
+  stdFields.push({ key: 'contact_phone', label: 'Contact Phone', value: pc.phone || '' });
+  stdFields.push({ key: 'contact_title', label: 'Contact Title', value: pc.title || '' });
+
+  // Financial summaries from documents
+  var docs = (job.documents && job.documents.nodes) || [];
+  var estimates = docs.filter(function(d) { return d.type === 'customerOrder'; });
+  var invoices = docs.filter(function(d) { return d.type === 'customerInvoice'; });
+  var approved = estimates.filter(function(e) { return e.status === 'approved' || e.status === 'accepted'; });
+  var totalRevenue = approved.reduce(function(s, e) { return s + (e.price || 0); }, 0);
+  var totalCost = approved.reduce(function(s, e) { return s + (e.cost || 0); }, 0);
+  var totalInvoiced = invoices.reduce(function(s, i) { return s + (i.price || 0); }, 0);
+
+  stdFields.push({ key: 'total_revenue', label: 'Est. Revenue', value: '$' + totalRevenue.toLocaleString() });
+  stdFields.push({ key: 'total_cost', label: 'Est. Cost', value: '$' + totalCost.toLocaleString() });
+  stdFields.push({ key: 'total_margin', label: 'Margin %', value: totalRevenue > 0 ? ((totalRevenue - totalCost) / totalRevenue * 100).toFixed(1) + '%' : 'N/A' });
+  stdFields.push({ key: 'total_invoiced', label: 'Total Invoiced', value: '$' + totalInvoiced.toLocaleString() });
+  stdFields.push({ key: 'estimate_count', label: 'Estimates', value: String(estimates.length) });
+  stdFields.push({ key: 'invoice_count', label: 'Invoices', value: String(invoices.length) });
+
+  // Today's date (useful for templates)
+  var today = new Date();
+  stdFields.push({ key: 'today_date', label: "Today's Date", value: today.toLocaleDateString() });
+  stdFields.push({ key: 'today_iso', label: 'Today (ISO)', value: today.toISOString().slice(0, 10) });
+
+  fields = fields.concat(stdFields.map(function(f) { return { key: f.key, label: f.label, value: f.value, group: 'standard' }; }));
+
+  // Custom fields
+  var cfValues = (job.customFieldValues && job.customFieldValues.nodes) || [];
+  for (var i = 0; i < cfValues.length; i++) {
+    var cfv = cfValues[i];
+    var cfName = (cfv.customField && cfv.customField.name) || 'Custom Field ' + (i + 1);
+    var cfKey = 'cf_' + cfName.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+    fields.push({
+      key: cfKey,
+      label: cfName,
+      value: cfv.value != null ? String(cfv.value) : '',
+      group: 'custom',
+      cfType: cfv.customField ? cfv.customField.type : 'text'
+    });
+  }
+
+  // Cache the fields
+  await Memory.setCachedFields(jobId, fields);
+
+  return { jobId: jobId, jobName: job.name || 'Unknown', fields: fields };
+}
+
+// ═══════════════════════════════════════════════════════════
 // MESSAGE ROUTER
 // ═══════════════════════════════════════════════════════════
 
@@ -805,6 +985,18 @@ async function handleMessage(message) {
     case 'EXPORT_ALL':
       return Memory.exportAll();
 
+    // Docs tab actions
+    case 'FETCH_JOB_FIELDS':
+      return handleFetchJobFields(message.jobId);
+    case 'GET_CACHED_FIELDS':
+      return Memory.getCachedFields();
+    case 'GET_TEMPLATES':
+      return { templates: await Memory.getTemplates() };
+    case 'SAVE_TEMPLATE':
+      return { templates: await Memory.saveTemplate(message.template) };
+    case 'DELETE_TEMPLATE':
+      return { templates: await Memory.deleteTemplate(message.id) };
+
     default:
       return { error: 'Unknown action: ' + message.action };
   }
@@ -856,6 +1048,27 @@ async function testJtConnection() {
   } catch (err) {
     console.error('[BetterBoss] Test connection error:', err);
     return { error: err.message };
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// FETCH JOB FIELDS HANDLER (Docs tab)
+// ═══════════════════════════════════════════════════════════
+
+async function handleFetchJobFields(jobId) {
+  try {
+    var settings = await Memory.getSettings();
+    if (!settings.jobtreadToken) {
+      return { error: 'Set your JobTread grant key in Settings first.' };
+    }
+    if (!jobId) {
+      return { error: 'No Job ID provided. Navigate to a project in JobTread first.' };
+    }
+    var result = await fetchJobFields(settings.jobtreadToken, jobId);
+    return result;
+  } catch (err) {
+    console.error('[BetterBoss] fetchJobFields error:', err);
+    return { error: 'Failed to fetch fields: ' + (err.message || String(err)) };
   }
 }
 
