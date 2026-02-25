@@ -7,10 +7,13 @@
     "build": "next build",
     "start": "next start"
   },
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.52.0",
     "@neondatabase/serverless": "^1.0.2",
-    "next": "14.0.4",
+    "next": "14.2.25",
     "pdfjs-dist": "^5.4.624",
     "react": "18.2.0",
     "react-dom": "18.2.0",
