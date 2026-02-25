@@ -2,6 +2,13 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
   "regions": ["iad1"],
+  "redirects": [
+    {
+      "source": "/",
+      "destination": "/estimate",
+      "permanent": false
+    }
+  ],
   "headers": [
     {
       "source": "/api/(.*)",
