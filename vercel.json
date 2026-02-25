@@ -5,7 +5,7 @@
   "redirects": [
     {
       "source": "/",
-      "destination": "/estimate",
+      "destination": "/dashboard",
       "permanent": false
     }
   ],
@@ -15,6 +15,16 @@
       "headers": [
         { "key": "Cache-Control", "value": "no-store" }
       ]
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/sequences/process",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/dashboard/snapshot",
+      "schedule": "0 */4 * * *"
     }
   ]
 }

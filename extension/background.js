@@ -805,6 +805,19 @@ async function handleMessage(message) {
     case 'EXPORT_ALL':
       return Memory.exportAll();
 
+    // ── Lead Capture Handlers ──────────────────────────────
+    case 'LEAD_CAPTURED':
+      return handleLeadCaptured(message.data);
+
+    case 'PUSH_LEAD_TO_JT':
+      return handlePushLeadToJT(message.leadId);
+
+    case 'GET_LEADS':
+      return handleGetLeads(message.filter);
+
+    case 'UPDATE_LEAD_STATUS':
+      return handleUpdateLeadStatus(message.leadId, message.status);
+
     default:
       return { error: 'Unknown action: ' + message.action };
   }
@@ -1098,5 +1111,238 @@ chrome.tabs.onActivated.addListener(function(activeInfo) {
     }
   });
 });
+
+// ═══════════════════════════════════════════════════════════
+// LEAD CAPTURE & MANAGEMENT
+// ═══════════════════════════════════════════════════════════
+
+const LEADS_STORAGE_KEY = 'bb_leads';
+const BB_WEB_API_BASE = 'https://better-boss.ai'; // Web app API base URL
+
+async function getStoredLeads() {
+  var data = await chrome.storage.local.get(LEADS_STORAGE_KEY);
+  return data[LEADS_STORAGE_KEY] || [];
+}
+
+async function saveStoredLeads(leads) {
+  await chrome.storage.local.set({ [LEADS_STORAGE_KEY]: leads });
+}
+
+// Generate a local ID for leads stored in extension
+function generateLeadId() {
+  return 'lead_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+}
+
+// LEAD_CAPTURED: Store lead locally, optionally push to web API
+async function handleLeadCaptured(leadData) {
+  try {
+    if (!leadData || (!leadData.name && !leadData.email)) {
+      return { error: 'Lead must have at least a name or email' };
+    }
+
+    var lead = {
+      id: generateLeadId(),
+      name: leadData.name || '',
+      email: leadData.email || '',
+      phone: leadData.phone || '',
+      address: leadData.address || '',
+      description: leadData.description || '',
+      source: leadData.source || 'unknown',
+      pageUrl: leadData.pageUrl || '',
+      status: 'new',
+      jobtreadContactId: null,
+      jobtreadJobId: null,
+      capturedAt: leadData.capturedAt || Date.now(),
+      updatedAt: Date.now(),
+    };
+
+    // Store locally
+    var leads = await getStoredLeads();
+    leads.unshift(lead);
+
+    // Keep max 500 leads locally
+    if (leads.length > 500) leads = leads.slice(0, 500);
+    await saveStoredLeads(leads);
+
+    // Optionally push to web API if settings have an API endpoint configured
+    var settings = await Memory.getSettings();
+    if (settings.webApiUrl) {
+      try {
+        await fetch(settings.webApiUrl + '/api/leads', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: lead.name,
+            email: lead.email,
+            phone: lead.phone,
+            address: lead.address,
+            source: lead.source,
+            job_description: lead.description,
+            status: lead.status,
+          }),
+        });
+      } catch (apiErr) {
+        console.warn('[BetterBoss] Could not sync lead to web API:', apiErr.message);
+        // Non-blocking: lead is still saved locally
+      }
+    }
+
+    console.log('[BetterBoss] Lead captured:', lead.name, 'from', lead.source);
+    return { success: true, lead: lead };
+  } catch (err) {
+    console.error('[BetterBoss] handleLeadCaptured error:', err);
+    return { error: err.message };
+  }
+}
+
+// PUSH_LEAD_TO_JT: Create Contact + Job in JobTread via Pave API
+async function handlePushLeadToJT(leadId) {
+  try {
+    var settings = await Memory.getSettings();
+    if (!settings.jobtreadToken) {
+      return { error: 'No JobTread grant key configured. Set it in Settings.' };
+    }
+
+    var grantKey = settings.jobtreadToken;
+    var leads = await getStoredLeads();
+    var leadIndex = leads.findIndex(function (l) { return l.id === leadId; });
+
+    if (leadIndex === -1) {
+      return { error: 'Lead not found: ' + leadId };
+    }
+
+    var lead = leads[leadIndex];
+
+    if (lead.jobtreadJobId) {
+      return { error: 'Lead already pushed to JobTread', jobtreadJobId: lead.jobtreadJobId };
+    }
+
+    // Step 1: Get org ID
+    var orgId = await getOrgId(grantKey);
+
+    // Step 2: Create contact
+    var contactInput = {
+      organizationId: orgId,
+      name: lead.name || 'Unknown Contact',
+    };
+    if (lead.email) contactInput.email = lead.email;
+    if (lead.phone) contactInput.phone = lead.phone;
+    contactInput.accountType = 'customer';
+
+    var contactData = await paveQuery(grantKey, {
+      createContact: {
+        $: { input: contactInput },
+        id: {},
+        name: {},
+        email: {},
+        phone: {},
+      },
+    });
+    var contact = contactData.createContact;
+
+    // Step 3: Create job linked to the contact
+    var jobName = lead.description
+      ? lead.name + ' - ' + lead.description.slice(0, 80)
+      : lead.name + ' - Lead from ' + (lead.source || 'extension');
+
+    var jobInput = {
+      name: jobName,
+      organizationId: orgId,
+      contactId: contact.id,
+    };
+    if (lead.address) {
+      jobInput.locationInput = { address: lead.address };
+    }
+
+    var jobData = await paveQuery(grantKey, {
+      createJob: {
+        $: { input: jobInput },
+        id: {},
+        number: {},
+        name: {},
+      },
+    });
+    var job = jobData.createJob;
+
+    // Step 4: Update local lead with JT IDs
+    leads[leadIndex].jobtreadContactId = contact.id;
+    leads[leadIndex].jobtreadJobId = job.id;
+    leads[leadIndex].status = 'converted';
+    leads[leadIndex].updatedAt = Date.now();
+    await saveStoredLeads(leads);
+
+    console.log('[BetterBoss] Lead pushed to JT:', lead.name, '-> Job #' + job.number);
+    return {
+      success: true,
+      lead: leads[leadIndex],
+      jobtreadContact: contact,
+      jobtreadJob: job,
+    };
+  } catch (err) {
+    console.error('[BetterBoss] handlePushLeadToJT error:', err);
+    return { error: err.message };
+  }
+}
+
+// GET_LEADS: Return stored leads with optional filtering
+async function handleGetLeads(filter) {
+  try {
+    var leads = await getStoredLeads();
+
+    if (filter) {
+      if (filter.status) {
+        leads = leads.filter(function (l) { return l.status === filter.status; });
+      }
+      if (filter.source) {
+        leads = leads.filter(function (l) { return l.source === filter.source; });
+      }
+      if (filter.search) {
+        var q = filter.search.toLowerCase();
+        leads = leads.filter(function (l) {
+          return (l.name && l.name.toLowerCase().indexOf(q) !== -1) ||
+                 (l.email && l.email.toLowerCase().indexOf(q) !== -1) ||
+                 (l.phone && l.phone.indexOf(q) !== -1) ||
+                 (l.address && l.address.toLowerCase().indexOf(q) !== -1) ||
+                 (l.description && l.description.toLowerCase().indexOf(q) !== -1);
+        });
+      }
+      if (filter.limit) {
+        leads = leads.slice(0, filter.limit);
+      }
+    }
+
+    return { success: true, leads: leads };
+  } catch (err) {
+    console.error('[BetterBoss] handleGetLeads error:', err);
+    return { error: err.message };
+  }
+}
+
+// UPDATE_LEAD_STATUS: Update the status of a stored lead
+async function handleUpdateLeadStatus(leadId, newStatus) {
+  try {
+    var validStatuses = ['new', 'contacted', 'qualified', 'converted', 'lost'];
+    if (validStatuses.indexOf(newStatus) === -1) {
+      return { error: 'Invalid status. Must be one of: ' + validStatuses.join(', ') };
+    }
+
+    var leads = await getStoredLeads();
+    var leadIndex = leads.findIndex(function (l) { return l.id === leadId; });
+
+    if (leadIndex === -1) {
+      return { error: 'Lead not found: ' + leadId };
+    }
+
+    leads[leadIndex].status = newStatus;
+    leads[leadIndex].updatedAt = Date.now();
+    await saveStoredLeads(leads);
+
+    console.log('[BetterBoss] Lead status updated:', leads[leadIndex].name, '->', newStatus);
+    return { success: true, lead: leads[leadIndex] };
+  } catch (err) {
+    console.error('[BetterBoss] handleUpdateLeadStatus error:', err);
+    return { error: err.message };
+  }
+}
 
 console.log('Mr. Better Boss ⚡ service worker loaded — ' + BG_VERSION);

@@ -26,6 +26,7 @@
     <!-- Tab Bar -->
     <nav id="tabBar">
       <button class="tab active" data-tab="chat">💬 Chat</button>
+      <button class="tab" data-tab="leads">📋 Leads</button>
       <button class="tab" data-tab="settings">⚙️ Settings</button>
     </nav>
 
@@ -47,6 +48,28 @@
         <div class="chat-input-wrap">
           <input type="text" id="chatInput" placeholder="Ask about your business..." autocomplete="off">
           <button id="btnSend" class="send-btn">➤</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Leads Panel -->
+    <div id="panel-leads" class="panel">
+      <div style="padding:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <h3 style="color:#fff;font-size:14px;margin:0;">Captured Leads</h3>
+          <span id="leadCount" style="font-size:12px;color:#6b7280;">0 leads</span>
+        </div>
+        <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;">
+          <button class="lead-filter active" data-filter="all" style="font-size:11px;padding:4px 10px;border-radius:100px;border:1px solid rgba(93,71,250,0.3);background:rgba(93,71,250,0.15);color:#7a64ff;cursor:pointer;">All</button>
+          <button class="lead-filter" data-filter="new" style="font-size:11px;padding:4px 10px;border-radius:100px;border:1px solid rgba(255,255,255,0.1);background:transparent;color:#6b7280;cursor:pointer;">New</button>
+          <button class="lead-filter" data-filter="contacted" style="font-size:11px;padding:4px 10px;border-radius:100px;border:1px solid rgba(255,255,255,0.1);background:transparent;color:#6b7280;cursor:pointer;">Contacted</button>
+          <button class="lead-filter" data-filter="converted" style="font-size:11px;padding:4px 10px;border-radius:100px;border:1px solid rgba(255,255,255,0.1);background:transparent;color:#6b7280;cursor:pointer;">Converted</button>
+        </div>
+        <div id="leadsList" style="display:flex;flex-direction:column;gap:8px;max-height:360px;overflow-y:auto;">
+          <div style="text-align:center;padding:40px 20px;color:#6b7280;font-size:13px;">
+            <p style="margin-bottom:4px;">No leads captured yet</p>
+            <p style="font-size:11px;">Visit Angi, Thumbtack, or other lead sources to capture leads automatically.</p>
+          </div>
         </div>
       </div>
     </div>

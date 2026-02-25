@@ -1,6 +1,8 @@
+import AuthProvider from './components/AuthProvider';
+
 export const metadata = {
-  title: 'Better Boss Estimator | AI Construction Estimating',
-  description: 'AI-powered construction estimating with JobTread sync. Generate estimates from scope of work, analyze blueprints, review with AI, and sync to JobTread.',
+  title: 'Better Boss | AI Tools for Construction Contractors',
+  description: 'AI-powered tools for construction contractors: estimating, lead capture, proposals, follow-ups, dashboards, and more. Powered by JobTread.',
   icons: {
     icon: '/favicon.ico',
   },
@@ -13,9 +15,13 @@ export default function RootLayout({ children }) {
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#5d47fa" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
       </head>
       <body>
-        {children}
+        <AuthProvider>{children}</AuthProvider>
         <style>{`
           *, *::before, *::after {
             box-sizing: border-box;
@@ -145,7 +151,18 @@ export default function RootLayout({ children }) {
           @media (max-width: 768px) {
             body { font-size: 14px; }
           }
+          @keyframes pulse {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 1; }
+          }
         `}</style>
+        <script dangerouslySetInnerHTML={{ __html: `
+          if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+              navigator.serviceWorker.register('/sw.js').catch(function() {});
+            });
+          }
+        `}} />
       </body>
     </html>
   );
