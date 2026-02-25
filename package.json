@@ -7,6 +7,9 @@
     "build": "next build",
     "start": "next start"
   },
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.52.0",
     "@neondatabase/serverless": "^1.0.2",
