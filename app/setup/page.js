@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 
 export default function SetupPage() {
   const router = useRouter();
-  const [step, setStep] = useState(0); // 0=checking, 1=db_missing, 2=needs_setup, 3=api_keys, 4=done
+  const [step, setStep] = useState(0); // 0=checking, 1=db_missing, 2=needs_setup, 3=needs_upgrade, 4=api_keys, 5=done
   const [dbStatus, setDbStatus] = useState(null);
   const [setting, setSetting] = useState(false);
   const [apiKey, setApiKey] = useState('');
@@ -28,7 +28,8 @@ export default function SetupPage() {
 
       if (data.status === 'no_database') setStep(1);
       else if (data.status === 'needs_setup') setStep(2);
-      else if (data.status === 'ready') setStep(3);
+      else if (data.status === 'needs_upgrade') setStep(3);
+      else if (data.status === 'ready') setStep(4);
       else if (data.status === 'error') {
         setStep(1);
         setError(data.message);
@@ -46,7 +47,7 @@ export default function SetupPage() {
       const res = await fetch('/api/setup', { method: 'POST' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setStep(3);
+      setStep(4);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -57,8 +58,7 @@ export default function SetupPage() {
   const saveKeys = () => {
     if (apiKey) localStorage.setItem('mrBetterBoss_apiKey', apiKey);
     if (grantKey) localStorage.setItem('bb_jobtread_grant_key', grantKey);
-    setStep(4);
-    setTimeout(() => router.push('/estimate'), 1500);
+    setStep(5);
   };
 
   const testJobTread = async () => {
@@ -93,12 +93,12 @@ export default function SetupPage() {
             <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
           </svg>
         </div>
-        <h1 style={styles.title}>Better Boss Estimator</h1>
-        <p style={styles.subtitle}>Let's get your estimating app set up</p>
+        <h1 style={styles.title}>Better Boss AI Platform</h1>
+        <p style={styles.subtitle}>Let's get your AI platform set up</p>
 
         {/* Progress Steps */}
         <div style={styles.steps}>
-          {['Database', 'Tables', 'API Keys', 'Ready'].map((label, i) => (
+          {['Database', 'Tables', 'Platform', 'API Keys', 'Ready'].map((label, i) => (
             <div key={i} style={styles.stepRow}>
               <div style={{
                 ...styles.stepDot,
@@ -114,7 +114,7 @@ export default function SetupPage() {
                 )}
               </div>
               <span style={{ color: step >= i ? '#e5e7eb' : '#4b5563', fontSize: '0.82em', fontWeight: 500 }}>{label}</span>
-              {i < 3 && <div style={{ ...styles.stepLine, background: step > i ? '#22c55e' : 'rgba(255,255,255,0.06)' }} />}
+              {i < 4 && <div style={{ ...styles.stepLine, background: step > i ? '#22c55e' : 'rgba(255,255,255,0.06)' }} />}
             </div>
           ))}
         </div>
@@ -201,7 +201,7 @@ export default function SetupPage() {
             </div>
             <h2 style={styles.cardTitle}>Database Connected!</h2>
             <p style={styles.cardDesc}>
-              Your Neon database is connected. Now we need to create the tables for estimates, line items, catalog, and takeoffs.
+              Your Neon database is connected. Now we need to create all platform tables — estimates, leads, sequences, dashboards, contracts, and more.
             </p>
             <button onClick={runSetup} disabled={setting} style={styles.primaryBtn}>
               {setting ? (
@@ -218,8 +218,47 @@ export default function SetupPage() {
           </div>
         )}
 
-        {/* Step 3: API Keys */}
+        {/* Step 3: Needs Upgrade (core tables exist, platform tables missing) */}
         {step === 3 && (
+          <div style={styles.card}>
+            <div style={styles.cardIcon}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#f59e0b' }}>
+                <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83" />
+              </svg>
+            </div>
+            <h2 style={styles.cardTitle}>Platform Upgrade Available</h2>
+            <p style={styles.cardDesc}>
+              Your core estimating tables are set up. We need to add the new platform tables for leads, sequences, daily logs, AI agent, dashboards, and more.
+            </p>
+            {dbStatus && (
+              <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
+                <div style={styles.statBox}>
+                  <span style={{ color: '#22c55e', fontWeight: 700, fontSize: '1.1em' }}>{dbStatus.core?.found}/{dbStatus.core?.expected}</span>
+                  <span style={{ color: '#6b7280', fontSize: '0.75em' }}>Core Tables</span>
+                </div>
+                <div style={styles.statBox}>
+                  <span style={{ color: '#f59e0b', fontWeight: 700, fontSize: '1.1em' }}>{dbStatus.platform?.found}/{dbStatus.platform?.expected}</span>
+                  <span style={{ color: '#6b7280', fontSize: '0.75em' }}>Platform Tables</span>
+                </div>
+              </div>
+            )}
+            <button onClick={runSetup} disabled={setting} style={styles.primaryBtn}>
+              {setting ? (
+                <><div style={styles.btnSpinner} /> Upgrading database...</>
+              ) : (
+                <>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83" />
+                  </svg>
+                  Upgrade Database
+                </>
+              )}
+            </button>
+          </div>
+        )}
+
+        {/* Step 4: API Keys */}
+        {step === 4 && (
           <div style={styles.card}>
             <div style={styles.cardIcon}>
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#22c55e' }}>
@@ -285,8 +324,8 @@ export default function SetupPage() {
           </div>
         )}
 
-        {/* Step 4: Done */}
-        {step === 4 && (
+        {/* Step 5: Done */}
+        {step === 5 && (
           <div style={styles.card}>
             <div style={{ ...styles.cardIcon, background: 'rgba(34,197,94,0.1)' }}>
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#22c55e' }}>
@@ -295,7 +334,18 @@ export default function SetupPage() {
               </svg>
             </div>
             <h2 style={styles.cardTitle}>All Set!</h2>
-            <p style={styles.cardDesc}>Redirecting to your estimates...</p>
+            <p style={styles.cardDesc}>Your Better Boss AI Platform is ready. Where would you like to go?</p>
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+              <button onClick={() => router.push('/dashboard')} style={styles.primaryBtn}>
+                Dashboard
+              </button>
+              <button onClick={() => router.push('/estimate')} style={styles.skipBtn}>
+                Estimates
+              </button>
+              <button onClick={() => router.push('/agent')} style={styles.skipBtn}>
+                AI Agent
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -540,6 +590,17 @@ const styles = {
     borderRadius: '50%',
     animation: 'spin 0.8s linear infinite',
     margin: '0 auto 16px',
+  },
+  statBox: {
+    flex: 1,
+    padding: '10px 14px',
+    background: 'rgba(255,255,255,0.02)',
+    border: '1px solid rgba(255,255,255,0.06)',
+    borderRadius: '8px',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '2px',
   },
   btnSpinner: {
     width: '14px',

@@ -6,10 +6,19 @@ export const runtime = 'nodejs';
 // Called by Vercel Cron every 15 minutes
 export async function POST(request) {
   try {
-    // Verify cron secret if configured
+    // Verify cron authorization
     const authHeader = request.headers.get('authorization');
-    if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    const cronSecret = process.env.CRON_SECRET;
+
+    if (cronSecret) {
+      if (authHeader !== `Bearer ${cronSecret}`) {
+        return Response.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+    } else if (process.env.VERCEL === '1') {
+      return Response.json(
+        { error: 'CRON_SECRET environment variable is required in production. Set it in Vercel project settings.' },
+        { status: 403 }
+      );
     }
 
     const results = await processSequences();

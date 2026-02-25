@@ -3,9 +3,15 @@ export const runtime = 'nodejs';
 import { getSQL } from '../../../lib/db';
 import { getOrgId, paveQuery, getOrganizationJobs } from '../../../lib/jobtread';
 
-// GET /api/dashboard/snapshot - Retrieve cached snapshot for a user
+// GET /api/dashboard/snapshot - Retrieve cached snapshot, or run cron if authorized
 export async function GET(request) {
   try {
+    // Check if this is a cron invocation (Vercel crons send GET with Bearer token)
+    const authHeader = request.headers.get('authorization');
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      return generateSnapshots(request);
+    }
+
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
 
@@ -41,30 +47,28 @@ export async function GET(request) {
 // POST /api/dashboard/snapshot - Cron handler to cache dashboard data
 // Called by Vercel Cron every 4 hours
 export async function POST(request) {
+  return generateSnapshots(request);
+}
+
+// Shared cron handler for both GET (Vercel cron) and POST invocations
+async function generateSnapshots(request) {
   try {
-    // Verify cron secret if set
+    // Verify cron authorization
     const authHeader = request.headers.get('authorization');
     const cronSecret = process.env.CRON_SECRET;
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 });
+
+    if (cronSecret) {
+      if (authHeader !== `Bearer ${cronSecret}`) {
+        return Response.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+    } else if (process.env.VERCEL === '1') {
+      return Response.json(
+        { error: 'CRON_SECRET environment variable is required in production. Set it in Vercel project settings.' },
+        { status: 403 }
+      );
     }
 
     const sql = getSQL();
-
-    // Ensure dashboard_snapshots table exists
-    await sql`
-      CREATE TABLE IF NOT EXISTS dashboard_snapshots (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        user_id UUID NOT NULL,
-        data JSONB NOT NULL,
-        created_at TIMESTAMPTZ DEFAULT now()
-      )
-    `;
-
-    await sql`
-      CREATE INDEX IF NOT EXISTS idx_dashboard_snapshots_user
-      ON dashboard_snapshots(user_id, created_at DESC)
-    `;
 
     // Get all users with JT grant keys
     const users = await sql`
@@ -109,7 +113,7 @@ export async function POST(request) {
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    console.error('Snapshot POST error:', error);
+    console.error('Snapshot cron error:', error);
     return Response.json({ error: error.message }, { status: 500 });
   }
 }

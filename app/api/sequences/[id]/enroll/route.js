@@ -1,7 +1,7 @@
 import { getSQL } from '../../../../lib/db';
 import { enrollInSequence } from '../../../../lib/sequences';
 
-export const runtime = 'edge';
+export const runtime = 'nodejs';
 
 // POST /api/sequences/[id]/enroll - Enroll a contact into a sequence
 export async function POST(request, { params }) {

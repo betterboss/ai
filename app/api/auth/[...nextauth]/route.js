@@ -3,9 +3,13 @@ import GoogleProvider from 'next-auth/providers/google';
 import EmailProvider from 'next-auth/providers/email';
 import { getSQL } from '../../../lib/db';
 
-// Custom Neon adapter for NextAuth
+// Custom Neon adapter for NextAuth (lazy SQL init to avoid build-time errors)
 function NeonAdapter() {
-  const sql = getSQL();
+  let _sql;
+  const sql = (...args) => {
+    if (!_sql) _sql = getSQL();
+    return _sql(...args);
+  };
 
   return {
     async createUser(user) {

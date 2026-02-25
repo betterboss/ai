@@ -1,163 +1,189 @@
 import { neon } from '@neondatabase/serverless';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 
-export const runtime = 'edge';
+export const runtime = 'nodejs';
 
-const SCHEMA = `
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+// Load schema at module level (resolved at build-time for serverless)
+let SCHEMA_SQL;
+try {
+  SCHEMA_SQL = readFileSync(
+    join(process.cwd(), 'app', 'lib', 'schema.sql'),
+    'utf-8'
+  );
+} catch {
+  SCHEMA_SQL = null;
+}
 
-CREATE TABLE IF NOT EXISTS users (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  email TEXT UNIQUE,
-  anthropic_api_key TEXT,
-  jobtread_grant_key TEXT,
-  company_name TEXT,
-  company_logo_url TEXT,
-  default_markup_pct DECIMAL(5,2) DEFAULT 25,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
+// Tables that exist in the original estimator
+const CORE_TABLES = [
+  'users', 'catalog_items', 'estimates', 'estimate_items',
+  'takeoffs', 'quote_templates',
+];
 
-CREATE TABLE IF NOT EXISTS catalog_items (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES users(id),
-  name TEXT NOT NULL,
-  description TEXT,
-  category TEXT,
-  unit TEXT,
-  unit_cost DECIMAL(10,2),
-  markup_pct DECIMAL(5,2) DEFAULT 0,
-  supplier TEXT,
-  jobtread_cost_code_id TEXT,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
+// Tables added by the full AI platform
+const PLATFORM_TABLES = [
+  'accounts', 'sessions', 'verification_tokens',
+  'leads', 'sequences', 'sequence_steps', 'sequence_enrollments',
+  'sequence_logs', 'message_templates', 'daily_logs', 'change_orders',
+  'contract_clauses', 'dashboard_snapshots', 'voice_logs',
+  'conversations', 'messages', 'integrations', 'sync_log',
+];
 
-CREATE TABLE IF NOT EXISTS estimates (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES users(id),
-  name TEXT NOT NULL,
-  client_name TEXT,
-  client_email TEXT,
-  client_phone TEXT,
-  job_address TEXT,
-  status TEXT DEFAULT 'draft',
-  total_cost DECIMAL(12,2) DEFAULT 0,
-  total_price DECIMAL(12,2) DEFAULT 0,
-  margin_pct DECIMAL(5,2) DEFAULT 0,
-  notes TEXT,
-  jobtread_job_id TEXT,
-  jobtread_estimate_id TEXT,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
+// Depends on pgvector extension
+const OPTIONAL_TABLES = ['estimate_embeddings'];
 
-CREATE TABLE IF NOT EXISTS estimate_items (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  estimate_id UUID REFERENCES estimates(id) ON DELETE CASCADE,
-  category TEXT,
-  description TEXT NOT NULL,
-  quantity DECIMAL(10,2),
-  unit TEXT,
-  unit_cost DECIMAL(10,2),
-  markup_pct DECIMAL(5,2) DEFAULT 0,
-  total_cost DECIMAL(12,2),
-  total_price DECIMAL(12,2),
-  source TEXT DEFAULT 'manual',
-  catalog_item_id UUID REFERENCES catalog_items(id),
-  sort_order INT DEFAULT 0,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
+/**
+ * Parse SQL file into individual executable statements.
+ * Strips comment lines and splits on semicolons.
+ */
+function parseStatements(sql) {
+  const lines = sql
+    .split('\n')
+    .filter((line) => !line.trim().startsWith('--'))
+    .join('\n');
 
-CREATE TABLE IF NOT EXISTS takeoffs (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  estimate_id UUID REFERENCES estimates(id) ON DELETE CASCADE,
-  file_name TEXT,
-  file_url TEXT,
-  page_count INT,
-  status TEXT DEFAULT 'pending',
-  raw_analysis JSONB,
-  extracted_items JSONB,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
+  return lines
+    .split(';')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+}
 
-CREATE TABLE IF NOT EXISTS quote_templates (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES users(id),
-  name TEXT,
-  header_text TEXT,
-  footer_text TEXT,
-  terms TEXT,
-  logo_url TEXT,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
+/**
+ * Check if a statement depends on the pgvector extension.
+ */
+function usesVector(stmt) {
+  const lower = stmt.toLowerCase();
+  return (
+    lower.includes('vector(') ||
+    lower.includes('vector_cosine_ops') ||
+    (lower.includes('estimate_embeddings') && !lower.includes('information_schema'))
+  );
+}
 
-CREATE INDEX IF NOT EXISTS idx_estimates_user_id ON estimates(user_id);
-CREATE INDEX IF NOT EXISTS idx_estimates_status ON estimates(status);
-CREATE INDEX IF NOT EXISTS idx_estimate_items_estimate_id ON estimate_items(estimate_id);
-CREATE INDEX IF NOT EXISTS idx_catalog_items_user_id ON catalog_items(user_id);
-CREATE INDEX IF NOT EXISTS idx_catalog_items_category ON catalog_items(category);
-CREATE INDEX IF NOT EXISTS idx_takeoffs_estimate_id ON takeoffs(estimate_id);
-`;
-
-// GET: Check database status
+// GET: Check database status with upgrade detection
 export async function GET() {
   const url = process.env.DATABASE_URL;
   if (!url) {
     return Response.json({
       status: 'no_database',
-      message: 'DATABASE_URL environment variable is not set. Add a Neon Postgres database to your Vercel project.',
+      message:
+        'DATABASE_URL environment variable is not set. Add a Neon Postgres database to your Vercel project.',
     });
   }
 
   try {
     const sql = neon(url);
-    // Check if tables exist
+    const allCheck = [...CORE_TABLES, ...PLATFORM_TABLES, ...OPTIONAL_TABLES];
+
     const tables = await sql`
       SELECT table_name FROM information_schema.tables
       WHERE table_schema = 'public'
-      AND table_name IN ('estimates', 'estimate_items', 'catalog_items', 'takeoffs', 'users')
+      AND table_name = ANY(${allCheck})
     `;
-    const tableNames = tables.map(t => t.table_name);
-    const allExist = ['estimates', 'estimate_items', 'catalog_items', 'takeoffs'].every(t => tableNames.includes(t));
+
+    const found = new Set(tables.map((t) => t.table_name));
+    const coreFound = CORE_TABLES.filter((t) => found.has(t));
+    const platformFound = PLATFORM_TABLES.filter((t) => found.has(t));
+    const hasCore = coreFound.length === CORE_TABLES.length;
+    const hasPlatform = platformFound.length === PLATFORM_TABLES.length;
+    const hasVector = OPTIONAL_TABLES.every((t) => found.has(t));
+
+    let status;
+    if (hasCore && hasPlatform) status = 'ready';
+    else if (hasCore && !hasPlatform) status = 'needs_upgrade';
+    else status = 'needs_setup';
 
     return Response.json({
-      status: allExist ? 'ready' : 'needs_setup',
-      tables: tableNames,
-      message: allExist ? 'Database is ready' : 'Database needs table setup',
+      status,
+      tables: [...found],
+      core: { expected: CORE_TABLES.length, found: coreFound.length },
+      platform: { expected: PLATFORM_TABLES.length, found: platformFound.length },
+      vector: hasVector,
+      message:
+        status === 'ready'
+          ? 'Database is fully configured'
+          : status === 'needs_upgrade'
+            ? 'Core tables exist. Platform tables need to be added.'
+            : 'Database needs initial setup',
     });
   } catch (err) {
-    return Response.json({
-      status: 'error',
-      message: err.message,
-    }, { status: 500 });
+    return Response.json(
+      { status: 'error', message: err.message },
+      { status: 500 }
+    );
   }
 }
 
-// POST: Run database setup
+// POST: Run full schema setup with error tolerance
 export async function POST() {
   const url = process.env.DATABASE_URL;
   if (!url) {
-    return Response.json({
-      error: 'DATABASE_URL environment variable is not set.',
-    }, { status: 400 });
+    return Response.json(
+      { error: 'DATABASE_URL environment variable is not set.' },
+      { status: 400 }
+    );
+  }
+
+  if (!SCHEMA_SQL) {
+    return Response.json(
+      { error: 'Could not load schema.sql. Ensure app/lib/schema.sql exists.' },
+      { status: 500 }
+    );
   }
 
   try {
     const sql = neon(url);
+    const statements = parseStatements(SCHEMA_SQL);
 
-    // Run each statement separately since neon() doesn't support multi-statement
-    const statements = SCHEMA.split(';').map(s => s.trim()).filter(s => s.length > 0);
+    const results = {
+      total: statements.length,
+      succeeded: 0,
+      skipped: 0,
+      failed: [],
+    };
+
+    let vectorAvailable = true;
 
     for (const stmt of statements) {
-      await sql(stmt);
+      // If vector extension failed, skip vector-dependent statements
+      if (!vectorAvailable && usesVector(stmt)) {
+        results.skipped++;
+        continue;
+      }
+
+      try {
+        await sql(stmt);
+        results.succeeded++;
+      } catch (err) {
+        // pgvector extension not available — skip gracefully
+        if (
+          stmt.toLowerCase().includes('create extension') &&
+          stmt.toLowerCase().includes('vector')
+        ) {
+          vectorAvailable = false;
+          results.skipped++;
+          continue;
+        }
+
+        // Log but continue for other errors
+        results.failed.push({
+          statement: stmt.slice(0, 150),
+          error: err.message,
+        });
+      }
     }
 
     return Response.json({
-      success: true,
-      message: 'Database tables created successfully',
+      success: results.failed.length === 0,
+      message: `Schema applied: ${results.succeeded} succeeded, ${results.skipped} skipped, ${results.failed.length} failed`,
+      ...results,
+      vectorEnabled: vectorAvailable,
     });
   } catch (err) {
-    return Response.json({
-      error: 'Failed to create tables: ' + err.message,
-    }, { status: 500 });
+    return Response.json(
+      { error: 'Failed to run schema: ' + err.message },
+      { status: 500 }
+    );
   }
 }
