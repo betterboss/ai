@@ -14,6 +14,7 @@ async function init() {
 
   setupTabs();
   setupChat();
+  setupLeads();
   setupMemory();
   setupSettings();
   loadPageContext();
@@ -31,6 +32,7 @@ function setupTabs() {
       tab.classList.add('active');
       document.getElementById(`panel-${tab.dataset.tab}`).classList.add('active');
       if (tab.dataset.tab === 'settings') loadMemory();
+      if (tab.dataset.tab === 'leads') loadLeads();
     });
   });
 
@@ -720,4 +722,104 @@ function escapeHtml(str) {
 
 function getDomain(url) {
   try { return new URL(url).hostname; } catch { return url; }
+}
+
+// ── Leads Panel ──────────────────────────────────────────────
+
+let currentLeadFilter = 'all';
+
+function setupLeads() {
+  document.querySelectorAll('.lead-filter').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.lead-filter').forEach(b => {
+        b.classList.remove('active');
+        b.style.background = 'transparent';
+        b.style.borderColor = 'rgba(255,255,255,0.1)';
+        b.style.color = '#6b7280';
+      });
+      btn.classList.add('active');
+      btn.style.background = 'rgba(93,71,250,0.15)';
+      btn.style.borderColor = 'rgba(93,71,250,0.3)';
+      btn.style.color = '#7a64ff';
+      currentLeadFilter = btn.dataset.filter;
+      loadLeads();
+    });
+  });
+}
+
+async function loadLeads() {
+  try {
+    const opts = { action: 'GET_LEADS' };
+    if (currentLeadFilter !== 'all') opts.status = currentLeadFilter;
+    const response = await chrome.runtime.sendMessage(opts);
+    const leads = response.leads || [];
+    const container = document.getElementById('leadsList');
+    const countEl = document.getElementById('leadCount');
+
+    countEl.textContent = `${leads.length} lead${leads.length !== 1 ? 's' : ''}`;
+
+    if (leads.length === 0) {
+      container.innerHTML = `
+        <div style="text-align:center;padding:40px 20px;color:#6b7280;font-size:13px;">
+          <p style="margin-bottom:4px;">No leads found</p>
+          <p style="font-size:11px;">Visit Angi, Thumbtack, or other lead sources to capture leads automatically.</p>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = leads.map(lead => {
+      const sourceColors = {
+        angi: '#ff6b35', thumbtack: '#009fd9', homeadvisor: '#f58220',
+        gmail: '#ea4335', google_maps: '#34a853', facebook: '#1877f2',
+        manual: '#6b7280', extension: '#5d47fa',
+      };
+      const color = sourceColors[lead.source] || '#6b7280';
+      const statusColors = {
+        new: '#5d47fa', contacted: '#f59e0b', qualified: '#34d399',
+        converted: '#10b981', lost: '#ef4444',
+      };
+      const sColor = statusColors[lead.status] || '#6b7280';
+
+      return `
+        <div style="background:#12131a;border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:12px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <span style="color:#fff;font-size:13px;font-weight:600;">${escapeHtml(lead.name || 'Unknown')}</span>
+            <span style="font-size:10px;background:${color}22;color:${color};padding:2px 8px;border-radius:100px;">${escapeHtml(lead.source || 'unknown')}</span>
+          </div>
+          ${lead.email ? `<div style="color:#6b7280;font-size:11px;">${escapeHtml(lead.email)}</div>` : ''}
+          ${lead.phone ? `<div style="color:#6b7280;font-size:11px;">${escapeHtml(lead.phone)}</div>` : ''}
+          ${lead.description ? `<div style="color:#9ca3af;font-size:11px;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(lead.description.slice(0, 80))}</div>` : ''}
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
+            <span style="font-size:10px;background:${sColor}22;color:${sColor};padding:2px 8px;border-radius:100px;">${escapeHtml(lead.status || 'new')}</span>
+            ${lead.status !== 'converted' ? `<button class="lead-push-btn" data-id="${lead.id}" style="font-size:11px;background:linear-gradient(135deg,#5d47fa,#7a64ff);color:#fff;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;">Push to JT</button>` : '<span style="font-size:10px;color:#10b981;">In JobTread</span>'}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    // Push to JT handlers
+    container.querySelectorAll('.lead-push-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        btn.textContent = '...';
+        btn.disabled = true;
+        try {
+          const result = await chrome.runtime.sendMessage({ action: 'PUSH_LEAD_TO_JT', leadId: btn.dataset.id });
+          if (result.error) {
+            btn.textContent = 'Error';
+            btn.style.background = '#ef4444';
+          } else {
+            btn.textContent = 'Done!';
+            btn.style.background = '#10b981';
+            setTimeout(loadLeads, 1000);
+          }
+        } catch (err) {
+          btn.textContent = 'Error';
+          btn.style.background = '#ef4444';
+        }
+      });
+    });
+  } catch (e) {
+    console.error('[BetterBoss] Load leads error:', e);
+  }
 }

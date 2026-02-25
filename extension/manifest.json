@@ -12,7 +12,17 @@
   "host_permissions": [
     "https://app.jobtread.com/*",
     "https://api.jobtread.com/*",
-    "https://api.anthropic.com/*"
+    "https://api.anthropic.com/*",
+    "https://www.angi.com/*",
+    "https://angi.com/*",
+    "https://pro.thumbtack.com/*",
+    "https://www.thumbtack.com/*",
+    "https://pro.homeadvisor.com/*",
+    "https://www.homeadvisor.com/*",
+    "https://mail.google.com/*",
+    "https://www.google.com/maps/*",
+    "https://www.facebook.com/*",
+    "https://m.facebook.com/*"
   ],
   "background": {
     "service_worker": "background.js"
@@ -24,7 +34,23 @@
   "content_scripts": [
     {
       "matches": ["https://app.jobtread.com/*"],
-      "js": ["content.js"],
+      "js": ["content.js", "command-bar/command-bar.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://www.angi.com/*",
+        "https://angi.com/*",
+        "https://pro.thumbtack.com/*",
+        "https://www.thumbtack.com/*",
+        "https://pro.homeadvisor.com/*",
+        "https://www.homeadvisor.com/*",
+        "https://mail.google.com/*",
+        "https://www.google.com/maps/*",
+        "https://www.facebook.com/*",
+        "https://m.facebook.com/*"
+      ],
+      "js": ["content-lead-capture.js"],
       "run_at": "document_idle"
     }
   ],
