@@ -14,18 +14,45 @@ export default function EstimateDashboard() {
   const [estimates, setEstimates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('');
+  const [dbError, setDbError] = useState(false);
 
   useEffect(() => {
-    loadEstimates();
+    checkAndLoad();
   }, [filter]);
 
-  const loadEstimates = async () => {
+  const checkAndLoad = async () => {
     setLoading(true);
+    try {
+      // First check DB status
+      const setupRes = await fetch('/api/setup');
+      const setupData = await setupRes.json();
+      if (setupData.status === 'no_database' || setupData.status === 'needs_setup') {
+        // Auto-setup tables if DB exists but tables don't
+        if (setupData.status === 'needs_setup') {
+          await fetch('/api/setup', { method: 'POST' });
+        } else {
+          setDbError(true);
+          setLoading(false);
+          return;
+        }
+      }
+      await loadEstimates();
+    } catch (err) {
+      console.error('Setup check failed:', err);
+      await loadEstimates();
+    }
+  };
+
+  const loadEstimates = async () => {
     try {
       const params = new URLSearchParams();
       if (filter) params.set('status', filter);
       const res = await fetch('/api/estimate?' + params.toString());
       const data = await res.json();
+      if (data.error && data.error.includes('DATABASE_URL')) {
+        setDbError(true);
+        return;
+      }
       setEstimates(data.estimates || []);
     } catch (err) {
       console.error('Failed to load estimates:', err);
@@ -61,6 +88,23 @@ export default function EstimateDashboard() {
     <div style={styles.page}>
       <Nav />
       <div style={styles.container}>
+        {/* Database Error */}
+        {dbError && (
+          <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+            <div style={{ width: '64px', height: '64px', borderRadius: '16px', background: 'rgba(245,158,11,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <h2 style={{ color: '#fff', fontSize: '1.3em', fontWeight: 700, margin: '0 0 8px' }}>Database Not Connected</h2>
+            <p style={{ color: '#6b7280', fontSize: '0.9em', margin: '0 0 24px', maxWidth: '400px', marginLeft: 'auto', marginRight: 'auto', lineHeight: 1.5 }}>
+              Add a Neon Postgres database to your Vercel project, then redeploy.
+            </p>
+            <a href="/setup" style={styles.newBtn}>Go to Setup</a>
+          </div>
+        )}
+
+        {!dbError && <>
         {/* Hero Header */}
         <div style={styles.hero}>
           <div style={styles.heroContent}>
@@ -184,6 +228,7 @@ export default function EstimateDashboard() {
             })}
           </div>
         )}
+        </>}
       </div>
 
       <style jsx global>{`

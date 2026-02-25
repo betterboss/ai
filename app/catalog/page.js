@@ -257,7 +257,7 @@ export default function CatalogManager() {
 const styles = {
   page: {
     minHeight: '100vh',
-    background: '#0f1419',
+    background: '#0a0b0f',
     color: '#f0f4f8',
     fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
   },
