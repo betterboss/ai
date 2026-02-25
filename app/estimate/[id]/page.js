@@ -29,6 +29,8 @@ export default function EstimateEditor() {
   const [error, setError] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [grantKey, setGrantKey] = useState('');
+  const [reviewing, setReviewing] = useState(false);
+  const [reviewResult, setReviewResult] = useState(null);
 
   useEffect(() => {
     setApiKey(localStorage.getItem('mrBetterBoss_apiKey') || '');
@@ -167,6 +169,52 @@ export default function EstimateEditor() {
     }
   }, [estimateId]);
 
+  const reviewEstimate = async () => {
+    if (!apiKey) {
+      setError('Anthropic API key is required for AI review.');
+      return;
+    }
+    setReviewing(true);
+    setError('');
+    setReviewResult(null);
+    try {
+      const res = await fetch('/api/estimate/review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ estimate, items, apiKey }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setReviewResult(data);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setReviewing(false);
+    }
+  };
+
+  const addSuggestedItem = async (suggestion) => {
+    try {
+      const res = await fetch(`/api/estimate/${estimateId}/items`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          description: suggestion.description,
+          quantity: suggestion.quantity || 1,
+          unit: suggestion.unit || 'each',
+          unit_cost: 0,
+          markup_pct: 25,
+          category: suggestion.category || 'General',
+          source: 'manual',
+        }),
+      });
+      if (!res.ok) throw new Error('Failed to add suggested item');
+      loadEstimate();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
   const syncToJobTread = async () => {
     if (!grantKey) {
       setError('JobTread grant key is required. Save it in your browser settings.');
@@ -303,6 +351,9 @@ export default function EstimateEditor() {
             {/* Actions */}
             <div style={styles.sideCard}>
               <h3 style={styles.sideTitle}>Actions</h3>
+              <button onClick={reviewEstimate} disabled={reviewing} style={styles.reviewBtn}>
+                {reviewing ? 'Reviewing...' : 'AI Review'}
+              </button>
               <button onClick={syncToJobTread} disabled={syncing} style={styles.actionBtn}>
                 {syncing ? 'Syncing...' : 'Sync to JobTread'}
               </button>
@@ -354,6 +405,55 @@ export default function EstimateEditor() {
               <div style={styles.success}>
                 Synced to JobTread! Estimate #{syncResult.jobtread_estimate_number}
                 <button onClick={() => setSyncResult(null)} style={styles.errorClose}>X</button>
+              </div>
+            )}
+
+            {reviewResult && (
+              <div style={styles.reviewPanel}>
+                <div style={styles.reviewHeader}>
+                  <div>
+                    <span style={styles.reviewTitle}>AI Review</span>
+                    <span style={{
+                      ...styles.reviewScore,
+                      color: reviewResult.score >= 80 ? '#00c853' : reviewResult.score >= 60 ? '#ffc107' : '#ff5252'
+                    }}>
+                      Score: {reviewResult.score}/100
+                    </span>
+                  </div>
+                  <button onClick={() => setReviewResult(null)} style={styles.errorClose}>X</button>
+                </div>
+                {reviewResult.summary && (
+                  <p style={styles.reviewSummary}>{reviewResult.summary}</p>
+                )}
+                {reviewResult.issues?.length > 0 && (
+                  <div style={styles.reviewIssues}>
+                    {reviewResult.issues.map((issue, i) => (
+                      <div key={i} style={{
+                        ...styles.reviewIssue,
+                        borderLeftColor: issue.severity === 'high' ? '#ff5252' : issue.severity === 'medium' ? '#ffc107' : '#8899a6',
+                      }}>
+                        <div style={styles.reviewIssueHeader}>
+                          <span style={{
+                            ...styles.reviewSeverity,
+                            color: issue.severity === 'high' ? '#ff5252' : issue.severity === 'medium' ? '#ffc107' : '#8899a6',
+                          }}>
+                            {issue.severity.toUpperCase()}
+                          </span>
+                          <span style={styles.reviewIssueType}>{issue.type?.replace(/_/g, ' ')}</span>
+                        </div>
+                        <p style={styles.reviewIssueMsg}>{issue.message}</p>
+                        {issue.suggestion && (
+                          <button
+                            onClick={() => addSuggestedItem(issue.suggestion)}
+                            style={styles.reviewAddBtn}
+                          >
+                            + Add: {issue.suggestion.description}
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
@@ -568,6 +668,89 @@ const styles = {
     color: '#7a64ff',
     cursor: 'pointer',
     fontSize: '0.85em',
+    fontWeight: 500,
+  },
+  reviewBtn: {
+    width: '100%',
+    padding: '10px',
+    background: 'rgba(255,193,7,0.12)',
+    border: '1px solid rgba(255,193,7,0.3)',
+    borderRadius: '8px',
+    color: '#ffc107',
+    fontWeight: 600,
+    cursor: 'pointer',
+    fontSize: '0.9em',
+    marginBottom: '8px',
+  },
+  reviewPanel: {
+    background: '#1a2332',
+    border: '1px solid rgba(255,255,255,0.08)',
+    borderRadius: '12px',
+    padding: '16px',
+    marginBottom: '16px',
+  },
+  reviewHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '8px',
+  },
+  reviewTitle: {
+    fontWeight: 700,
+    fontSize: '1em',
+    marginRight: '12px',
+  },
+  reviewScore: {
+    fontWeight: 600,
+    fontSize: '0.9em',
+  },
+  reviewSummary: {
+    color: '#8899a6',
+    fontSize: '0.85em',
+    margin: '0 0 12px',
+    lineHeight: 1.5,
+  },
+  reviewIssues: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
+  },
+  reviewIssue: {
+    background: 'rgba(255,255,255,0.03)',
+    borderRadius: '8px',
+    padding: '10px 12px',
+    borderLeft: '3px solid',
+  },
+  reviewIssueHeader: {
+    display: 'flex',
+    gap: '8px',
+    alignItems: 'center',
+    marginBottom: '4px',
+  },
+  reviewSeverity: {
+    fontSize: '0.7em',
+    fontWeight: 700,
+    letterSpacing: '0.5px',
+  },
+  reviewIssueType: {
+    fontSize: '0.75em',
+    color: '#8899a6',
+    textTransform: 'capitalize',
+  },
+  reviewIssueMsg: {
+    fontSize: '0.85em',
+    color: '#f0f4f8',
+    margin: '0 0 6px',
+    lineHeight: 1.4,
+  },
+  reviewAddBtn: {
+    background: 'rgba(93,71,250,0.15)',
+    border: '1px solid rgba(93,71,250,0.3)',
+    borderRadius: '6px',
+    color: '#7a64ff',
+    padding: '4px 10px',
+    fontSize: '0.8em',
+    cursor: 'pointer',
     fontWeight: 500,
   },
   tableBtnSecondary: {
