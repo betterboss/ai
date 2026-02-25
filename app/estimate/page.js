@@ -4,10 +4,10 @@ import { useState, useEffect } from 'react';
 import Nav from '../components/Nav';
 
 const STATUS_COLORS = {
-  draft: { bg: 'rgba(255,193,7,0.15)', color: '#ffc107' },
-  sent: { bg: 'rgba(93,71,250,0.15)', color: '#7a64ff' },
-  approved: { bg: 'rgba(0,200,83,0.15)', color: '#00c853' },
-  rejected: { bg: 'rgba(255,82,82,0.15)', color: '#ff5252' },
+  draft: { bg: 'rgba(251,191,36,0.1)', color: '#fbbf24', border: 'rgba(251,191,36,0.25)' },
+  sent: { bg: 'rgba(139,92,246,0.1)', color: '#a78bfa', border: 'rgba(139,92,246,0.25)' },
+  approved: { bg: 'rgba(34,197,94,0.1)', color: '#22c55e', border: 'rgba(34,197,94,0.25)' },
+  rejected: { bg: 'rgba(239,68,68,0.1)', color: '#ef4444', border: 'rgba(239,68,68,0.25)' },
 };
 
 export default function EstimateDashboard() {
@@ -40,7 +40,6 @@ export default function EstimateDashboard() {
     loadEstimates();
   };
 
-  // Stats
   const totalPipeline = estimates.reduce((s, e) => s + (parseFloat(e.total_price) || 0), 0);
   const avgMargin = estimates.length > 0
     ? estimates.reduce((s, e) => s + (parseFloat(e.margin_pct) || 0), 0) / estimates.length
@@ -51,35 +50,47 @@ export default function EstimateDashboard() {
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
   }).length;
 
+  const stats = [
+    { label: 'Pipeline', value: '$' + totalPipeline.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }), icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z', color: '#22c55e' },
+    { label: 'Avg Margin', value: avgMargin.toFixed(1) + '%', icon: 'M13 7h8m0 0v8m0-8l-8 8-4-4-6 6', color: '#a78bfa' },
+    { label: 'This Month', value: String(thisMonth), icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z', color: '#38bdf8' },
+    { label: 'Total', value: String(estimates.length), icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2', color: '#f59e0b' },
+  ];
+
   return (
     <div style={styles.page}>
       <Nav />
       <div style={styles.container}>
-        <div style={styles.header}>
-          <div>
-            <h1 style={styles.title}>Estimates</h1>
-            <p style={styles.subtitle}>AI-powered estimating for construction pros</p>
+        {/* Hero Header */}
+        <div style={styles.hero}>
+          <div style={styles.heroContent}>
+            <div style={styles.heroLeft}>
+              <h1 style={styles.heroTitle}>Estimates</h1>
+              <p style={styles.heroSub}>AI-powered construction estimating</p>
+            </div>
+            <a href="/estimate/new" style={styles.newBtn}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+              New Estimate
+            </a>
           </div>
-          <a href="/estimate/new" style={styles.newBtn}>+ New Estimate</a>
-        </div>
 
-        {/* Stats Bar */}
-        <div style={styles.statsRow}>
-          <div style={styles.statCard}>
-            <div style={styles.statValue}>${totalPipeline.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
-            <div style={styles.statLabel}>Total Pipeline</div>
-          </div>
-          <div style={styles.statCard}>
-            <div style={styles.statValue}>{avgMargin.toFixed(1)}%</div>
-            <div style={styles.statLabel}>Avg Margin</div>
-          </div>
-          <div style={styles.statCard}>
-            <div style={styles.statValue}>{thisMonth}</div>
-            <div style={styles.statLabel}>This Month</div>
-          </div>
-          <div style={styles.statCard}>
-            <div style={styles.statValue}>{estimates.length}</div>
-            <div style={styles.statLabel}>Total Estimates</div>
+          {/* Stats */}
+          <div style={styles.statsRow}>
+            {stats.map((stat, i) => (
+              <div key={i} style={styles.statCard}>
+                <div style={{ ...styles.statIcon, background: stat.color + '15', color: stat.color }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d={stat.icon} />
+                  </svg>
+                </div>
+                <div>
+                  <div style={styles.statValue}>{stat.value}</div>
+                  <div style={styles.statLabel}>{stat.label}</div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 
@@ -94,6 +105,11 @@ export default function EstimateDashboard() {
                 ...(filter === f ? styles.filterActive : {}),
               }}
             >
+              {f === '' && (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '4px' }}>
+                  <path d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              )}
               {f || 'All'}
             </button>
           ))}
@@ -101,46 +117,66 @@ export default function EstimateDashboard() {
 
         {/* Estimate List */}
         {loading ? (
-          <div style={styles.empty}>Loading estimates...</div>
+          <div style={styles.loadingWrap}>
+            <div style={styles.spinner} />
+            <p style={styles.loadingText}>Loading estimates...</p>
+          </div>
         ) : estimates.length === 0 ? (
           <div style={styles.emptyState}>
-            <div style={styles.emptyIcon}>&#x1f4cb;</div>
+            <div style={styles.emptyIconWrap}>
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#4b5563' }}>
+                <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+            </div>
             <h3 style={styles.emptyTitle}>No estimates yet</h3>
-            <p style={styles.emptyText}>Create your first estimate to get started.</p>
-            <a href="/estimate/new" style={styles.newBtn}>+ New Estimate</a>
+            <p style={styles.emptyText}>Create your first AI-powered estimate to get started.</p>
+            <a href="/estimate/new" style={styles.newBtn}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+              New Estimate
+            </a>
           </div>
         ) : (
           <div style={styles.list}>
             {estimates.map(est => {
               const statusStyle = STATUS_COLORS[est.status] || STATUS_COLORS.draft;
+              const price = parseFloat(est.total_price || 0);
+              const margin = parseFloat(est.margin_pct || 0);
               return (
                 <a key={est.id} href={`/estimate/${est.id}`} style={styles.card}>
-                  <div style={styles.cardTop}>
-                    <div>
-                      <div style={styles.cardName}>{est.name}</div>
-                      {est.client_name && (
-                        <div style={styles.cardClient}>{est.client_name}</div>
+                  <div style={styles.cardLeft}>
+                    <div style={styles.cardName}>{est.name}</div>
+                    {est.client_name && (
+                      <div style={styles.cardClient}>{est.client_name}</div>
+                    )}
+                    <div style={styles.cardMeta}>
+                      <span style={styles.cardDate}>
+                        {new Date(est.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      </span>
+                      {est.job_address && (
+                        <span style={styles.cardAddress}>{est.job_address}</span>
                       )}
                     </div>
-                    <span style={{ ...styles.badge, background: statusStyle.bg, color: statusStyle.color }}>
+                  </div>
+                  <div style={styles.cardRight}>
+                    <span style={{ ...styles.badge, background: statusStyle.bg, color: statusStyle.color, border: `1px solid ${statusStyle.border}` }}>
                       {est.status}
                     </span>
-                  </div>
-                  <div style={styles.cardBottom}>
-                    <span style={styles.cardPrice}>
-                      ${parseFloat(est.total_price || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                    </span>
-                    <span style={styles.cardMargin}>
-                      {parseFloat(est.margin_pct || 0).toFixed(1)}% margin
-                    </span>
-                    <span style={styles.cardDate}>
-                      {new Date(est.created_at).toLocaleDateString()}
-                    </span>
+                    <div style={styles.cardPrice}>
+                      ${price.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    </div>
+                    <div style={styles.cardMargin}>
+                      {margin.toFixed(1)}% margin
+                    </div>
                     <button
-                      onClick={(e) => { e.preventDefault(); deleteEstimate(est.id); }}
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); deleteEstimate(est.id); }}
                       style={styles.deleteBtn}
+                      title="Delete estimate"
                     >
-                      Delete
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
                     </button>
                   </div>
                 </a>
@@ -149,6 +185,11 @@ export default function EstimateDashboard() {
           </div>
         )}
       </div>
+
+      <style jsx global>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes cardIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+      `}</style>
     </div>
   );
 }
@@ -156,168 +197,240 @@ export default function EstimateDashboard() {
 const styles = {
   page: {
     minHeight: '100vh',
-    background: '#0f1419',
-    color: '#f0f4f8',
+    background: '#0a0b0f',
+    color: '#e5e7eb',
     fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
   },
   container: {
     maxWidth: '1000px',
     margin: '0 auto',
-    padding: '24px',
+    padding: '0 24px 60px',
   },
-  header: {
+  hero: {
+    padding: '32px 0 24px',
+    borderBottom: '1px solid rgba(255,255,255,0.06)',
+    marginBottom: '20px',
+  },
+  heroContent: {
     display: 'flex',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     marginBottom: '24px',
   },
-  title: {
-    fontSize: '1.8em',
-    fontWeight: 700,
+  heroLeft: {},
+  heroTitle: {
+    fontSize: '2em',
+    fontWeight: 800,
     margin: 0,
+    color: '#fff',
+    letterSpacing: '-0.03em',
   },
-  subtitle: {
-    color: '#8899a6',
+  heroSub: {
+    color: '#6b7280',
     margin: '4px 0 0',
-    fontSize: '0.95em',
+    fontSize: '0.9em',
   },
   newBtn: {
-    padding: '10px 20px',
-    background: 'linear-gradient(135deg, #5d47fa, #7a64ff)',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '10px 22px',
+    background: 'linear-gradient(135deg, #5d47fa 0%, #7c3aed 100%)',
     borderRadius: '10px',
     color: '#fff',
     textDecoration: 'none',
     fontWeight: 600,
-    fontSize: '0.95em',
+    fontSize: '0.9em',
     border: 'none',
     cursor: 'pointer',
+    boxShadow: '0 4px 16px rgba(93,71,250,0.35)',
+    transition: 'all 0.2s',
   },
   statsRow: {
     display: 'grid',
     gridTemplateColumns: 'repeat(4, 1fr)',
     gap: '12px',
-    marginBottom: '24px',
   },
   statCard: {
-    background: '#1a2332',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    background: 'rgba(255,255,255,0.03)',
     borderRadius: '12px',
-    padding: '16px',
+    padding: '14px 16px',
     border: '1px solid rgba(255,255,255,0.06)',
   },
+  statIcon: {
+    width: '38px',
+    height: '38px',
+    borderRadius: '10px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
   statValue: {
-    fontSize: '1.5em',
+    fontSize: '1.25em',
     fontWeight: 700,
-    color: '#f0f4f8',
+    color: '#fff',
+    lineHeight: 1.2,
   },
   statLabel: {
-    fontSize: '0.8em',
-    color: '#8899a6',
-    marginTop: '2px',
+    fontSize: '0.75em',
+    color: '#6b7280',
+    marginTop: '1px',
   },
   filterRow: {
     display: 'flex',
-    gap: '4px',
-    marginBottom: '16px',
+    gap: '6px',
+    marginBottom: '20px',
   },
   filterBtn: {
+    display: 'inline-flex',
+    alignItems: 'center',
     padding: '6px 14px',
     background: 'transparent',
-    border: '1px solid rgba(255,255,255,0.1)',
-    borderRadius: '20px',
-    color: '#8899a6',
+    border: '1px solid rgba(255,255,255,0.08)',
+    borderRadius: '8px',
+    color: '#6b7280',
     cursor: 'pointer',
-    fontSize: '0.85em',
+    fontSize: '0.82em',
+    fontWeight: 500,
     textTransform: 'capitalize',
+    transition: 'all 0.15s',
   },
   filterActive: {
-    background: 'rgba(93,71,250,0.15)',
-    borderColor: 'rgba(93,71,250,0.4)',
-    color: '#7a64ff',
+    background: 'rgba(93,71,250,0.12)',
+    borderColor: 'rgba(93,71,250,0.3)',
+    color: '#a78bfa',
   },
   list: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '10px',
+    gap: '8px',
   },
   card: {
-    display: 'block',
-    background: '#1a2332',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    background: 'rgba(255,255,255,0.025)',
     borderRadius: '12px',
     padding: '16px 20px',
     border: '1px solid rgba(255,255,255,0.06)',
     textDecoration: 'none',
     color: 'inherit',
-    transition: 'border-color 0.15s',
+    transition: 'all 0.2s',
+    animation: 'cardIn 0.3s ease-out',
   },
-  cardTop: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: '8px',
+  cardLeft: {
+    flex: 1,
+    minWidth: 0,
   },
   cardName: {
     fontWeight: 600,
-    fontSize: '1.05em',
-    color: '#f0f4f8',
+    fontSize: '1em',
+    color: '#f3f4f6',
+    marginBottom: '2px',
   },
   cardClient: {
-    color: '#8899a6',
+    color: '#9ca3af',
     fontSize: '0.85em',
-    marginTop: '2px',
+    marginBottom: '6px',
+  },
+  cardMeta: {
+    display: 'flex',
+    gap: '12px',
+    alignItems: 'center',
+  },
+  cardDate: {
+    color: '#6b7280',
+    fontSize: '0.78em',
+  },
+  cardAddress: {
+    color: '#6b7280',
+    fontSize: '0.78em',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    maxWidth: '250px',
+  },
+  cardRight: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '16px',
+    flexShrink: 0,
   },
   badge: {
-    padding: '3px 10px',
-    borderRadius: '12px',
-    fontSize: '0.75em',
+    padding: '4px 10px',
+    borderRadius: '6px',
+    fontSize: '0.72em',
     fontWeight: 600,
     textTransform: 'uppercase',
     letterSpacing: '0.5px',
   },
-  cardBottom: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '16px',
-    fontSize: '0.85em',
-  },
   cardPrice: {
     fontWeight: 700,
-    color: '#00c853',
+    fontSize: '1.1em',
+    color: '#22c55e',
+    fontVariantNumeric: 'tabular-nums',
   },
   cardMargin: {
-    color: '#8899a6',
-  },
-  cardDate: {
-    color: '#8899a6',
+    color: '#6b7280',
+    fontSize: '0.82em',
+    fontVariantNumeric: 'tabular-nums',
   },
   deleteBtn: {
-    marginLeft: 'auto',
-    padding: '4px 10px',
+    padding: '6px',
     background: 'transparent',
-    border: '1px solid rgba(255,82,82,0.3)',
+    border: '1px solid transparent',
     borderRadius: '6px',
-    color: '#ff5252',
+    color: '#4b5563',
     cursor: 'pointer',
-    fontSize: '0.8em',
+    transition: 'all 0.15s',
+    display: 'flex',
+    alignItems: 'center',
   },
-  empty: {
+  loadingWrap: {
     textAlign: 'center',
-    color: '#8899a6',
-    padding: '40px',
+    padding: '80px 20px',
+  },
+  spinner: {
+    width: '32px',
+    height: '32px',
+    border: '3px solid rgba(93,71,250,0.2)',
+    borderTopColor: '#5d47fa',
+    borderRadius: '50%',
+    animation: 'spin 0.8s linear infinite',
+    margin: '0 auto 16px',
+  },
+  loadingText: {
+    color: '#6b7280',
+    fontSize: '0.9em',
   },
   emptyState: {
     textAlign: 'center',
-    padding: '60px 20px',
+    padding: '80px 20px',
   },
-  emptyIcon: {
-    fontSize: '3em',
-    marginBottom: '12px',
+  emptyIconWrap: {
+    width: '80px',
+    height: '80px',
+    borderRadius: '20px',
+    background: 'rgba(255,255,255,0.03)',
+    border: '1px solid rgba(255,255,255,0.06)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    margin: '0 auto 20px',
   },
   emptyTitle: {
-    color: '#f0f4f8',
+    color: '#e5e7eb',
     margin: '0 0 8px',
+    fontSize: '1.2em',
+    fontWeight: 600,
   },
   emptyText: {
-    color: '#8899a6',
-    margin: '0 0 20px',
+    color: '#6b7280',
+    margin: '0 0 24px',
+    fontSize: '0.9em',
   },
 };
