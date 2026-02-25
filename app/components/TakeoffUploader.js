@@ -44,7 +44,7 @@ export default function TakeoffUploader({ estimateId, apiKey, onTakeoffComplete 
         throw new Error(data.error || 'Analysis failed');
       }
 
-      setProgress(`Analysis complete! Found ${data.items?.length || 0} items across ${data.page_count} pages.`);
+      setProgress(`Found ${data.items?.length || 0} items across ${data.page_count} pages`);
       setTakeoffs(prev => [...prev, { fileName: file.name, ...data }]);
 
       if (onTakeoffComplete) {
@@ -60,7 +60,7 @@ export default function TakeoffUploader({ estimateId, apiKey, onTakeoffComplete 
   };
 
   return (
-    <div style={styles.container}>
+    <div>
       <div style={styles.uploadArea}>
         <input
           ref={fileRef}
@@ -71,54 +71,79 @@ export default function TakeoffUploader({ estimateId, apiKey, onTakeoffComplete 
           style={styles.fileInput}
         />
         <div style={styles.uploadContent}>
-          <span style={styles.uploadIcon}>{uploading ? '...' : '+'}</span>
+          {uploading ? (
+            <div style={styles.uploadSpinner} />
+          ) : (
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#a78bfa' }}>
+              <path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+            </svg>
+          )}
           <span style={styles.uploadLabel}>
             {uploading ? 'Analyzing...' : 'Upload Blueprint PDF'}
           </span>
           <span style={styles.uploadHint}>
-            AI will extract quantities from your plans
+            AI extracts quantities from your plans
           </span>
         </div>
       </div>
 
       {progress && (
-        <div style={styles.progress}>{progress}</div>
+        <div style={styles.progress}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M22 11.08V12a10 10 0 11-5.93-9.14" />
+            <polyline points="22 4 12 14.01 9 11.01" />
+          </svg>
+          {progress}
+        </div>
       )}
 
       {error && (
-        <div style={styles.error}>{error}</div>
+        <div style={styles.error}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="15" y1="9" x2="9" y2="15" />
+            <line x1="9" y1="9" x2="15" y2="15" />
+          </svg>
+          {error}
+        </div>
       )}
 
       {takeoffs.length > 0 && (
         <div style={styles.fileList}>
           {takeoffs.map((t, i) => (
             <div key={i} style={styles.fileItem}>
-              <span style={styles.fileIcon}>PDF</span>
-              <div>
+              <div style={styles.fileIcon}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                </svg>
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={styles.fileName}>{t.fileName}</div>
                 <div style={styles.fileMeta}>
-                  {t.page_count} pages | {t.items?.length || 0} items found
+                  {t.page_count} pages | {t.items?.length || 0} items
                 </div>
               </div>
             </div>
           ))}
         </div>
       )}
+
+      <style jsx global>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }
 
 const styles = {
-  container: { marginBottom: '16px' },
   uploadArea: {
     position: 'relative',
-    border: '2px dashed rgba(93,71,250,0.4)',
-    borderRadius: '12px',
-    padding: '24px',
+    border: '1px dashed rgba(139,92,246,0.3)',
+    borderRadius: '10px',
+    padding: '20px',
     textAlign: 'center',
     cursor: 'pointer',
     transition: 'all 0.2s',
-    background: 'rgba(93,71,250,0.05)',
+    background: 'rgba(139,92,246,0.03)',
   },
   fileInput: {
     position: 'absolute',
@@ -133,70 +158,86 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
-    gap: '8px',
+    gap: '6px',
     pointerEvents: 'none',
   },
-  uploadIcon: {
-    fontSize: '2em',
-    color: '#7a64ff',
+  uploadSpinner: {
+    width: '24px',
+    height: '24px',
+    border: '2px solid rgba(139,92,246,0.2)',
+    borderTopColor: '#a78bfa',
+    borderRadius: '50%',
+    animation: 'spin 0.8s linear infinite',
   },
   uploadLabel: {
     fontWeight: 600,
-    color: '#f0f4f8',
-    fontSize: '0.95em',
+    color: '#e5e7eb',
+    fontSize: '0.85em',
   },
   uploadHint: {
-    color: '#8899a6',
-    fontSize: '0.8em',
+    color: '#6b7280',
+    fontSize: '0.75em',
   },
   progress: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
     marginTop: '8px',
-    padding: '8px 12px',
-    background: 'rgba(0,200,83,0.1)',
-    border: '1px solid rgba(0,200,83,0.3)',
+    padding: '8px 10px',
+    background: 'rgba(34,197,94,0.06)',
+    border: '1px solid rgba(34,197,94,0.15)',
     borderRadius: '8px',
-    color: '#00c853',
-    fontSize: '0.85em',
+    color: '#22c55e',
+    fontSize: '0.78em',
   },
   error: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
     marginTop: '8px',
-    padding: '8px 12px',
-    background: 'rgba(255,82,82,0.1)',
-    border: '1px solid rgba(255,82,82,0.3)',
+    padding: '8px 10px',
+    background: 'rgba(239,68,68,0.06)',
+    border: '1px solid rgba(239,68,68,0.15)',
     borderRadius: '8px',
-    color: '#ff5252',
-    fontSize: '0.85em',
+    color: '#ef4444',
+    fontSize: '0.78em',
   },
   fileList: {
-    marginTop: '12px',
+    marginTop: '10px',
     display: 'flex',
     flexDirection: 'column',
-    gap: '8px',
+    gap: '6px',
   },
   fileItem: {
     display: 'flex',
     alignItems: 'center',
-    gap: '10px',
-    padding: '8px 12px',
-    background: 'rgba(255,255,255,0.03)',
+    gap: '8px',
+    padding: '8px 10px',
+    background: 'rgba(255,255,255,0.025)',
     borderRadius: '8px',
-    border: '1px solid rgba(255,255,255,0.06)',
+    border: '1px solid rgba(255,255,255,0.04)',
   },
   fileIcon: {
-    padding: '4px 8px',
-    background: 'rgba(255,82,82,0.15)',
-    borderRadius: '4px',
-    color: '#ff5252',
-    fontSize: '0.7em',
-    fontWeight: 700,
+    width: '28px',
+    height: '28px',
+    borderRadius: '6px',
+    background: 'rgba(239,68,68,0.1)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: '#ef4444',
+    flexShrink: 0,
   },
   fileName: {
-    color: '#f0f4f8',
-    fontSize: '0.85em',
+    color: '#e5e7eb',
+    fontSize: '0.82em',
     fontWeight: 500,
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
   },
   fileMeta: {
-    color: '#8899a6',
-    fontSize: '0.75em',
+    color: '#6b7280',
+    fontSize: '0.72em',
   },
 };
