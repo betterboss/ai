@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import Nav from '../components/Nav';
+import PageShell from '../components/PageShell';
 
 const CATEGORIES = ['material', 'labor', 'equipment', 'subcontractor'];
 const CATEGORY_COLORS = {
@@ -132,8 +132,7 @@ export default function CatalogManager() {
     : items;
 
   return (
-    <div style={styles.page}>
-      <Nav />
+    <PageShell>
       <div style={styles.container}>
         {/* Hero Header */}
         <div style={styles.hero}>
@@ -323,21 +322,15 @@ export default function CatalogManager() {
           </div>
         )}
       </div>
-    </div>
+    </PageShell>
   );
 }
 
 const styles = {
-  page: {
-    minHeight: '100vh',
-    background: '#0a0b0f',
-    color: '#e5e7eb',
-    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
-  },
   container: {
-    maxWidth: '960px',
-    margin: '0 auto',
-    padding: '0 24px 60px',
+    maxWidth: '1100px',
+    padding: '28px 32px 60px',
+    color: '#e5e7eb',
   },
   hero: {
     padding: '32px 0 24px',

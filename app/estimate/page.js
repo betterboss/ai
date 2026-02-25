@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Nav from '../components/Nav';
+import PageShell from '../components/PageShell';
 
 const STATUS_COLORS = {
   draft: { bg: 'rgba(251,191,36,0.1)', color: '#fbbf24', border: 'rgba(251,191,36,0.25)' },
@@ -85,8 +85,7 @@ export default function EstimateDashboard() {
   ];
 
   return (
-    <div style={styles.page}>
-      <Nav />
+    <PageShell>
       <div style={styles.container}>
         {/* Database Error */}
         {dbError && (
@@ -235,21 +234,15 @@ export default function EstimateDashboard() {
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes cardIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
       `}</style>
-    </div>
+    </PageShell>
   );
 }
 
 const styles = {
-  page: {
-    minHeight: '100vh',
-    background: '#0a0b0f',
-    color: '#e5e7eb',
-    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
-  },
   container: {
-    maxWidth: '1000px',
-    margin: '0 auto',
-    padding: '0 24px 60px',
+    maxWidth: '1100px',
+    padding: '28px 32px 60px',
+    color: '#e5e7eb',
   },
   hero: {
     padding: '32px 0 24px',
