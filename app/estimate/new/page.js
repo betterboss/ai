@@ -39,7 +39,6 @@ export default function NewEstimate() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
 
-      // If scope was provided, generate line items
       if (scopeMode && scope.trim()) {
         const apiKey = localStorage.getItem('mrBetterBoss_apiKey') || '';
         if (apiKey) {
@@ -72,16 +71,31 @@ export default function NewEstimate() {
       <Nav />
       <div style={styles.container}>
         <div style={styles.header}>
-          <a href="/estimate" style={styles.backLink}>Estimates</a>
+          <a href="/estimate" style={styles.backLink}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 12H5M12 19l-7-7 7-7" />
+            </svg>
+            Back to Estimates
+          </a>
           <h1 style={styles.title}>New Estimate</h1>
+          <p style={styles.subtitle}>Fill in the details to create a new construction estimate.</p>
         </div>
 
         <form onSubmit={handleSubmit} style={styles.form}>
+          {/* Job Details Card */}
           <div style={styles.card}>
-            <h2 style={styles.cardTitle}>Job Details</h2>
+            <div style={styles.cardTitleRow}>
+              <div style={styles.cardIconBox}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
+                  <circle cx="12" cy="10" r="3" />
+                </svg>
+              </div>
+              <h2 style={styles.cardTitle}>Job Details</h2>
+            </div>
             <div style={styles.grid}>
               <div style={styles.field}>
-                <label style={styles.label}>Estimate Name *</label>
+                <label style={styles.label}>Estimate Name <span style={{ color: '#ef4444' }}>*</span></label>
                 <input
                   style={styles.input}
                   placeholder="e.g., Kitchen Remodel - Smith"
@@ -94,7 +108,7 @@ export default function NewEstimate() {
                 <label style={styles.label}>Client Name</label>
                 <input
                   style={styles.input}
-                  placeholder="e.g., John Smith"
+                  placeholder="John Smith"
                   value={form.client_name}
                   onChange={e => setForm({ ...form, client_name: e.target.value })}
                 />
@@ -119,7 +133,7 @@ export default function NewEstimate() {
                 />
               </div>
             </div>
-            <div style={styles.field}>
+            <div style={{ ...styles.field, marginTop: '16px' }}>
               <label style={styles.label}>Job Address</label>
               <input
                 style={styles.input}
@@ -128,7 +142,7 @@ export default function NewEstimate() {
                 onChange={e => setForm({ ...form, job_address: e.target.value })}
               />
             </div>
-            <div style={styles.field}>
+            <div style={{ ...styles.field, marginTop: '16px' }}>
               <label style={styles.label}>Notes</label>
               <textarea
                 style={{ ...styles.input, minHeight: '80px', resize: 'vertical' }}
@@ -139,9 +153,14 @@ export default function NewEstimate() {
             </div>
           </div>
 
-          {/* AI Scope-to-Estimate */}
+          {/* AI Quick Start Card */}
           <div style={styles.card}>
-            <div style={styles.cardHeader}>
+            <div style={styles.cardTitleRow}>
+              <div style={{ ...styles.cardIconBox, background: 'linear-gradient(135deg, #5d47fa, #7c3aed)' }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+                </svg>
+              </div>
               <h2 style={styles.cardTitle}>Quick Start</h2>
               <span style={styles.aiBadge}>AI</span>
             </div>
@@ -154,6 +173,10 @@ export default function NewEstimate() {
                 onClick={() => setScopeMode(false)}
                 style={{ ...styles.modeBtn, ...(!scopeMode ? styles.modeBtnActive : {}) }}
               >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                </svg>
                 Start Blank
               </button>
               <button
@@ -161,36 +184,56 @@ export default function NewEstimate() {
                 onClick={() => setScopeMode(true)}
                 style={{ ...styles.modeBtn, ...(scopeMode ? styles.modeBtnActive : {}) }}
               >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+                </svg>
                 Paste Scope of Work
               </button>
             </div>
 
             {scopeMode && (
-              <div style={styles.field}>
+              <div style={{ ...styles.field, marginTop: '16px' }}>
                 <label style={styles.label}>Scope of Work</label>
                 <textarea
-                  style={{ ...styles.input, minHeight: '150px', resize: 'vertical' }}
-                  placeholder="Paste your scope of work here... e.g., 'Remodel master bathroom. Remove existing tub, install walk-in shower with frameless glass door. New vanity with double sinks...'"
+                  style={{ ...styles.input, minHeight: '160px', resize: 'vertical' }}
+                  placeholder="Paste your scope of work here...&#10;&#10;e.g., 'Remodel master bathroom. Remove existing tub, install walk-in shower with frameless glass door. New vanity with double sinks...'"
                   value={scope}
                   onChange={e => setScope(e.target.value)}
                 />
                 <p style={styles.scopeHint}>
-                  AI will analyze this scope and generate line items automatically.
+                  AI will analyze this scope and generate line items with categories, quantities, and units automatically.
                 </p>
               </div>
             )}
           </div>
 
-          {error && <div style={styles.error}>{error}</div>}
+          {error && (
+            <div style={styles.error}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="15" y1="9" x2="9" y2="15" />
+                <line x1="9" y1="9" x2="15" y2="15" />
+              </svg>
+              {error}
+            </div>
+          )}
 
           <div style={styles.actions}>
             <a href="/estimate" style={styles.cancelBtn}>Cancel</a>
-            <button type="submit" disabled={loading} style={styles.submitBtn}>
+            <button type="submit" disabled={loading} style={{
+              ...styles.submitBtn,
+              opacity: loading ? 0.7 : 1,
+            }}>
+              {loading && <div style={styles.btnSpinner} />}
               {loading ? 'Creating...' : 'Create Estimate'}
             </button>
           </div>
         </form>
       </div>
+
+      <style jsx global>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+      `}</style>
     </div>
   );
 }
@@ -198,64 +241,87 @@ export default function NewEstimate() {
 const styles = {
   page: {
     minHeight: '100vh',
-    background: '#0f1419',
-    color: '#f0f4f8',
+    background: '#0a0b0f',
+    color: '#e5e7eb',
     fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
   },
   container: {
-    maxWidth: '700px',
+    maxWidth: '680px',
     margin: '0 auto',
-    padding: '24px',
+    padding: '0 24px 60px',
   },
   header: {
-    marginBottom: '24px',
+    padding: '32px 0 24px',
   },
   backLink: {
-    color: '#7a64ff',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px',
+    color: '#6b7280',
     textDecoration: 'none',
     fontSize: '0.85em',
+    fontWeight: 500,
+    transition: 'color 0.15s',
   },
   title: {
-    fontSize: '1.6em',
-    fontWeight: 700,
-    margin: '8px 0 0',
+    fontSize: '1.8em',
+    fontWeight: 800,
+    margin: '12px 0 0',
+    color: '#fff',
+    letterSpacing: '-0.03em',
+  },
+  subtitle: {
+    color: '#6b7280',
+    margin: '6px 0 0',
+    fontSize: '0.9em',
   },
   form: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '20px',
+    gap: '16px',
   },
   card: {
-    background: '#1a2332',
-    borderRadius: '16px',
+    background: 'rgba(255,255,255,0.025)',
+    borderRadius: '14px',
     padding: '24px',
     border: '1px solid rgba(255,255,255,0.06)',
   },
-  cardHeader: {
+  cardTitleRow: {
     display: 'flex',
     alignItems: 'center',
-    gap: '8px',
-    marginBottom: '8px',
+    gap: '10px',
+    marginBottom: '20px',
+  },
+  cardIconBox: {
+    width: '32px',
+    height: '32px',
+    borderRadius: '8px',
+    background: 'rgba(255,255,255,0.06)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: '#9ca3af',
   },
   cardTitle: {
-    fontSize: '1.1em',
+    fontSize: '1.05em',
     fontWeight: 600,
-    margin: '0 0 16px',
-    color: '#f0f4f8',
+    margin: 0,
+    color: '#f3f4f6',
   },
   aiBadge: {
     padding: '2px 8px',
-    background: 'linear-gradient(135deg, #5d47fa, #7a64ff)',
-    borderRadius: '6px',
-    fontSize: '0.7em',
+    background: 'linear-gradient(135deg, #5d47fa, #7c3aed)',
+    borderRadius: '5px',
+    fontSize: '0.68em',
     fontWeight: 700,
     color: '#fff',
-    marginBottom: '16px',
+    letterSpacing: '0.5px',
   },
   hint: {
-    color: '#8899a6',
+    color: '#6b7280',
     fontSize: '0.85em',
     margin: '0 0 16px',
+    lineHeight: 1.5,
   },
   grid: {
     display: 'grid',
@@ -266,80 +332,103 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     gap: '6px',
-    marginTop: '12px',
   },
   label: {
-    fontSize: '0.85em',
+    fontSize: '0.82em',
     fontWeight: 500,
-    color: '#8899a6',
+    color: '#9ca3af',
   },
   input: {
     padding: '10px 14px',
-    background: 'rgba(255,255,255,0.06)',
-    border: '1px solid rgba(255,255,255,0.1)',
+    background: 'rgba(255,255,255,0.04)',
+    border: '1px solid rgba(255,255,255,0.08)',
     borderRadius: '8px',
-    color: '#f0f4f8',
-    fontSize: '0.95em',
+    color: '#f3f4f6',
+    fontSize: '0.92em',
     fontFamily: 'inherit',
+    transition: 'border-color 0.15s',
+    outline: 'none',
   },
   modeRow: {
     display: 'flex',
     gap: '8px',
-    marginBottom: '12px',
   },
   modeBtn: {
     flex: 1,
-    padding: '10px 16px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8px',
+    padding: '12px 16px',
     background: 'transparent',
-    border: '1px solid rgba(255,255,255,0.1)',
+    border: '1px solid rgba(255,255,255,0.08)',
     borderRadius: '10px',
-    color: '#8899a6',
+    color: '#6b7280',
     cursor: 'pointer',
-    fontSize: '0.9em',
+    fontSize: '0.88em',
     fontWeight: 500,
+    transition: 'all 0.15s',
   },
   modeBtnActive: {
-    background: 'rgba(93,71,250,0.15)',
-    borderColor: 'rgba(93,71,250,0.4)',
-    color: '#7a64ff',
+    background: 'rgba(93,71,250,0.1)',
+    borderColor: 'rgba(93,71,250,0.35)',
+    color: '#a78bfa',
   },
   scopeHint: {
-    color: '#8899a6',
-    fontSize: '0.8em',
-    marginTop: '4px',
+    color: '#6b7280',
+    fontSize: '0.78em',
+    marginTop: '6px',
   },
   error: {
-    padding: '10px 14px',
-    background: 'rgba(255,82,82,0.1)',
-    border: '1px solid rgba(255,82,82,0.3)',
-    borderRadius: '8px',
-    color: '#ff5252',
-    fontSize: '0.9em',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '12px 16px',
+    background: 'rgba(239,68,68,0.08)',
+    border: '1px solid rgba(239,68,68,0.2)',
+    borderRadius: '10px',
+    color: '#ef4444',
+    fontSize: '0.88em',
   },
   actions: {
     display: 'flex',
     justifyContent: 'flex-end',
-    gap: '12px',
+    gap: '10px',
+    paddingTop: '8px',
   },
   cancelBtn: {
     padding: '10px 20px',
     background: 'transparent',
-    border: '1px solid rgba(255,255,255,0.15)',
+    border: '1px solid rgba(255,255,255,0.1)',
     borderRadius: '10px',
-    color: '#8899a6',
+    color: '#6b7280',
     textDecoration: 'none',
-    fontSize: '0.95em',
+    fontSize: '0.9em',
+    fontWeight: 500,
     display: 'flex',
     alignItems: 'center',
   },
   submitBtn: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '8px',
     padding: '10px 24px',
-    background: 'linear-gradient(135deg, #5d47fa, #7a64ff)',
+    background: 'linear-gradient(135deg, #5d47fa 0%, #7c3aed 100%)',
     borderRadius: '10px',
     color: '#fff',
     fontWeight: 600,
-    fontSize: '0.95em',
+    fontSize: '0.9em',
     border: 'none',
     cursor: 'pointer',
+    boxShadow: '0 4px 16px rgba(93,71,250,0.3)',
+    transition: 'all 0.2s',
+  },
+  btnSpinner: {
+    width: '14px',
+    height: '14px',
+    border: '2px solid rgba(255,255,255,0.3)',
+    borderTopColor: '#fff',
+    borderRadius: '50%',
+    animation: 'spin 0.8s linear infinite',
   },
 };
