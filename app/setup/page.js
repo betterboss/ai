@@ -66,10 +66,18 @@ export default function SetupPage() {
     setTestingJT(true);
     setJtResult(null);
     try {
-      // Quick test by trying to fetch estimates (which hits the DB, not JT)
-      // For JT we'd need a test endpoint, but let's just save the key
-      localStorage.setItem('bb_jobtread_grant_key', grantKey);
-      setJtResult({ success: true });
+      const res = await fetch('/api/jobtread/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ grantKey }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        localStorage.setItem('bb_jobtread_grant_key', grantKey);
+        setJtResult({ success: true, org: data.organization });
+      } else {
+        setJtResult({ success: false, error: data.error || 'Connection failed' });
+      }
     } catch (err) {
       setJtResult({ success: false, error: err.message });
     } finally {
@@ -255,10 +263,13 @@ export default function SetupPage() {
                   value={grantKey}
                   onChange={e => setGrantKey(e.target.value)}
                 />
+                <button onClick={testJobTread} disabled={testingJT || !grantKey} style={styles.testBtn}>
+                  {testingJT ? 'Testing...' : 'Test'}
+                </button>
               </div>
               {jtResult && (
                 <div style={{ ...styles.testResult, color: jtResult.success ? '#22c55e' : '#ef4444' }}>
-                  {jtResult.success ? 'Key saved!' : jtResult.error}
+                  {jtResult.success ? `Connected to ${jtResult.org}` : jtResult.error}
                 </div>
               )}
             </div>
@@ -486,6 +497,18 @@ const styles = {
     fontFamily: 'inherit',
     outline: 'none',
     boxSizing: 'border-box',
+  },
+  testBtn: {
+    padding: '9px 16px',
+    background: 'rgba(34,197,94,0.1)',
+    border: '1px solid rgba(34,197,94,0.25)',
+    borderRadius: '8px',
+    color: '#22c55e',
+    fontSize: '0.82em',
+    fontWeight: 600,
+    cursor: 'pointer',
+    whiteSpace: 'nowrap',
+    flexShrink: 0,
   },
   testResult: {
     fontSize: '0.78em',

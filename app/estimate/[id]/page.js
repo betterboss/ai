@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import Nav from '../../components/Nav';
 import EstimateTable from '../../components/EstimateTable';
@@ -38,6 +38,8 @@ export default function EstimateEditor() {
   const [reviewing, setReviewing] = useState(false);
   const [reviewResult, setReviewResult] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [clientInfo, setClientInfo] = useState({ client_name: '', client_email: '', client_phone: '', job_address: '' });
+  const saveTimerRef = useRef(null);
 
   useEffect(() => {
     setApiKey(localStorage.getItem('mrBetterBoss_apiKey') || '');
@@ -54,6 +56,12 @@ export default function EstimateEditor() {
       setEstimate(data.estimate);
       setItems(data.items || []);
       setTakeoffs(data.takeoffs || []);
+      setClientInfo({
+        client_name: data.estimate.client_name || '',
+        client_email: data.estimate.client_email || '',
+        client_phone: data.estimate.client_phone || '',
+        job_address: data.estimate.job_address || '',
+      });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -77,6 +85,16 @@ export default function EstimateEditor() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const updateClientInfo = (field, value) => {
+    const updated = { ...clientInfo, [field]: value };
+    setClientInfo(updated);
+    // Debounce the save
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      saveEstimate({ [field]: value });
+    }, 600);
   };
 
   const updateItem = async (itemId, updates) => {
@@ -298,9 +316,16 @@ export default function EstimateEditor() {
           <div style={styles.headerLeft}>
             <div style={styles.headerTitleRow}>
               <h1 style={styles.title}>{estimate.name}</h1>
-              <span style={{ ...styles.statusBadge, background: statusStyle.bg, color: statusStyle.color, border: `1px solid ${statusStyle.border}` }}>
-                {estimate.status}
-              </span>
+              <select
+                value={estimate.status || 'draft'}
+                onChange={e => saveEstimate({ status: e.target.value })}
+                style={{ ...styles.statusBadge, background: statusStyle.bg, color: statusStyle.color, border: `1px solid ${statusStyle.border}`, cursor: 'pointer', appearance: 'none', paddingRight: '10px' }}
+              >
+                <option value="draft">draft</option>
+                <option value="sent">sent</option>
+                <option value="approved">approved</option>
+                <option value="rejected">rejected</option>
+              </select>
             </div>
             {estimate.client_name && (
               <p style={styles.clientName}>{estimate.client_name}</p>
@@ -420,8 +445,8 @@ export default function EstimateEditor() {
                   <label style={styles.infoLabel}>Client</label>
                   <input
                     style={styles.infoInput}
-                    value={estimate.client_name || ''}
-                    onChange={e => saveEstimate({ client_name: e.target.value })}
+                    value={clientInfo.client_name}
+                    onChange={e => updateClientInfo('client_name', e.target.value)}
                     placeholder="Client name"
                   />
                 </div>
@@ -429,8 +454,8 @@ export default function EstimateEditor() {
                   <label style={styles.infoLabel}>Email</label>
                   <input
                     style={styles.infoInput}
-                    value={estimate.client_email || ''}
-                    onChange={e => saveEstimate({ client_email: e.target.value })}
+                    value={clientInfo.client_email}
+                    onChange={e => updateClientInfo('client_email', e.target.value)}
                     placeholder="Email"
                   />
                 </div>
@@ -438,8 +463,8 @@ export default function EstimateEditor() {
                   <label style={styles.infoLabel}>Phone</label>
                   <input
                     style={styles.infoInput}
-                    value={estimate.client_phone || ''}
-                    onChange={e => saveEstimate({ client_phone: e.target.value })}
+                    value={clientInfo.client_phone}
+                    onChange={e => updateClientInfo('client_phone', e.target.value)}
                     placeholder="Phone"
                   />
                 </div>
@@ -447,8 +472,8 @@ export default function EstimateEditor() {
                   <label style={styles.infoLabel}>Address</label>
                   <input
                     style={styles.infoInput}
-                    value={estimate.job_address || ''}
-                    onChange={e => saveEstimate({ job_address: e.target.value })}
+                    value={clientInfo.job_address}
+                    onChange={e => updateClientInfo('job_address', e.target.value)}
                     placeholder="Job address"
                   />
                 </div>
