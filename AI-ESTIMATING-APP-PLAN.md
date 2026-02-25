@@ -48,7 +48,7 @@ An AI-powered web application that:
               └───────────┬────────────┘
                           │
               ┌───────────▼────────────┐
-              │  Database (Supabase)   │ ← Hosted Postgres, free tier
+              │  Database (Neon)       │ ← Serverless Postgres
               │  Estimates, line items │
               │  Cost catalog, takeoffs│
               │  Quote templates       │
@@ -66,11 +66,11 @@ An AI-powered web application that:
 | Decision | Choice | Why |
 |----------|--------|-----|
 | **Framework** | Next.js 14 (App Router) | Already in use, same stack |
-| **Database** | Supabase (Postgres) | Free tier, hosted, auth built-in, great Next.js support |
+| **Database** | Neon (Serverless Postgres) | Serverless, auto-scaling, native Vercel integration |
 | **AI** | Claude Vision + Claude text | Already integrated via @anthropic-ai/sdk |
 | **JobTread API** | Pave Query Language | Already proven in the Chrome extension |
 | **PDF Processing** | pdfjs-dist + sharp | Convert PDF pages to images for Claude Vision |
-| **Deployment** | Vercel | Already deployed there |
+| **Deployment** | Vercel + GitHub | CI/CD from GitHub, deployed on Vercel |
 
 ---
 
@@ -156,7 +156,7 @@ CREATE TABLE takeoffs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   estimate_id UUID REFERENCES estimates(id) ON DELETE CASCADE,
   file_name TEXT,
-  file_url TEXT,                    -- Supabase Storage URL
+  file_url TEXT,                    -- File storage URL
   page_count INT,
   status TEXT DEFAULT 'pending',    -- pending, analyzing, complete, error
   raw_analysis JSONB,               -- full Claude Vision response
@@ -391,7 +391,7 @@ Enhance the existing extension (`extension/background.js`) with:
 
 ```json
 {
-  "@supabase/supabase-js": "^2.x",
+  "@neondatabase/serverless": "^0.10.x",
   "pdfjs-dist": "^4.x",
   "sharp": "^0.33.x"
 }
@@ -399,19 +399,17 @@ Enhance the existing extension (`extension/background.js`) with:
 
 | Package | Purpose |
 |---------|---------|
-| `@supabase/supabase-js` | Database client (Postgres) |
+| `@neondatabase/serverless` | Neon serverless Postgres driver (Edge-compatible) |
 | `pdfjs-dist` | PDF parsing and page rendering |
 | `sharp` | Image processing for PDF → PNG conversion |
 
 ## Environment Variables (New)
 
 ```env
-SUPABASE_URL=https://xxx.supabase.co
-SUPABASE_ANON_KEY=xxx
-SUPABASE_SERVICE_KEY=xxx
-NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=xxx
+DATABASE_URL=postgresql://user:pass@ep-xxx.us-east-2.aws.neon.tech/neondb?sslmode=require
 ```
+
+> **Tip**: Connect Neon to your Vercel project via the Neon integration — `DATABASE_URL` is auto-injected into all deployments.
 
 ---
 
@@ -420,7 +418,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=xxx
 ```
 /app
 ├── lib/
-│   ├── db.js                        ← Supabase client init
+│   ├── db.js                        ← Neon serverless client
 │   ├── jobtread.js                  ← Server-side Pave API client
 │   └── pdf.js                       ← PDF-to-image conversion
 ├── api/
@@ -463,8 +461,8 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=xxx
 
 | Step | What | Depends On |
 |------|------|------------|
-| 1 | Set up Supabase project + run schema SQL | Nothing |
-| 2 | Create `/app/lib/db.js` (Supabase client) | Step 1 |
+| 1 | Set up Neon project + run schema SQL | Nothing |
+| 2 | Create `/app/lib/db.js` (Neon client) | Step 1 |
 | 3 | Create `/app/lib/jobtread.js` (port Pave API from extension) | Nothing |
 | 4 | Build estimate CRUD APIs (`/api/estimate/*`) | Steps 1-2 |
 | 5 | Build estimate dashboard UI (`/estimate/page.js`) | Step 4 |
@@ -482,7 +480,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=xxx
 
 ## Verification Checklist
 
-- [ ] Database schema deployed to Supabase
+- [ ] Database schema deployed to Neon
 - [ ] Can create, edit, delete estimates via UI
 - [ ] Can manage cost catalog (add, edit, import CSV)
 - [ ] PDF upload → Claude Vision extracts quantities → populates line items

@@ -1,10 +1,8 @@
-import { getServerClient } from '../../../lib/db';
+import { getSQL } from '../../../lib/db';
 
 export const runtime = 'edge';
 
-// POST /api/catalog/import - Import catalog items from CSV
-// Expects JSON body with { items: [...], userId: "..." }
-// CSV parsing should be done client-side; this receives structured data
+// POST /api/catalog/import - Import catalog items from parsed CSV data
 export async function POST(request) {
   try {
     const { items, userId } = await request.json();
@@ -13,30 +11,33 @@ export async function POST(request) {
       return Response.json({ error: 'items array is required' }, { status: 400 });
     }
 
-    const db = getServerClient();
+    const sql = getSQL();
+    const inserted = [];
 
-    const rows = items.map(item => ({
-      user_id: userId || null,
-      name: item.name || item.Name || item.ITEM || '',
-      description: item.description || item.Description || item.DESC || null,
-      category: normalizeCategory(item.category || item.Category || item.TYPE || 'material'),
-      unit: item.unit || item.Unit || item.UOM || 'each',
-      unit_cost: parseFloat(item.unit_cost || item['Unit Cost'] || item.COST || 0),
-      markup_pct: parseFloat(item.markup_pct || item.Markup || item.MARKUP || 0),
-      supplier: item.supplier || item.Supplier || item.VENDOR || null,
-    })).filter(row => row.name); // Skip rows without a name
+    for (const item of items) {
+      const name = item.name || item.Name || item.ITEM || '';
+      if (!name) continue;
 
-    if (rows.length === 0) {
+      const description = item.description || item.Description || item.DESC || null;
+      const category = normalizeCategory(item.category || item.Category || item.TYPE || 'material');
+      const unit = item.unit || item.Unit || item.UOM || 'each';
+      const unitCost = parseFloat(item.unit_cost || item['Unit Cost'] || item.COST || 0);
+      const markupPct = parseFloat(item.markup_pct || item.Markup || item.MARKUP || 0);
+      const supplier = item.supplier || item.Supplier || item.VENDOR || null;
+
+      const rows = await sql`
+        INSERT INTO catalog_items (user_id, name, description, category, unit, unit_cost, markup_pct, supplier)
+        VALUES (${userId || null}, ${name}, ${description}, ${category}, ${unit}, ${unitCost}, ${markupPct}, ${supplier})
+        RETURNING *
+      `;
+      inserted.push(rows[0]);
+    }
+
+    if (inserted.length === 0) {
       return Response.json({ error: 'No valid items found in import data' }, { status: 400 });
     }
 
-    const { data, error } = await db.from('catalog_items').insert(rows).select();
-    if (error) throw error;
-
-    return Response.json({
-      imported: data.length,
-      items: data,
-    }, { status: 201 });
+    return Response.json({ imported: inserted.length, items: inserted }, { status: 201 });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }

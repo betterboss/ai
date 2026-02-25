@@ -1,5 +1,8 @@
--- AI Estimating App - Supabase Schema
--- Run this in the Supabase SQL editor to set up all tables
+-- AI Estimating App — Neon Postgres Schema
+-- Run this in the Neon SQL Editor or via psql to set up all tables
+
+-- Enable UUID generation
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 -- Users / API config
 CREATE TABLE IF NOT EXISTS users (

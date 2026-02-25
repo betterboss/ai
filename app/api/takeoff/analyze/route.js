@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { getServerClient } from '../../../lib/db';
+import { getSQL } from '../../../lib/db';
 import { pdfToImages, imageToBase64Content } from '../../../lib/pdf';
 
 const TAKEOFF_PROMPT = `You are an expert construction takeoff specialist. Analyze this blueprint/plan page and extract ALL measurable quantities.
@@ -50,28 +50,26 @@ export async function POST(request) {
       return Response.json({ error: 'API key is required' }, { status: 400 });
     }
 
-    const db = getServerClient();
+    const sql = getSQL();
     const buffer = await file.arrayBuffer();
 
     // Create takeoff record
-    const { data: takeoff, error: insertError } = await db.from('takeoffs').insert({
-      estimate_id: estimateId || null,
-      file_name: file.name,
-      status: 'analyzing',
-    }).select().single();
-
-    if (insertError) throw insertError;
+    const takeoffRows = await sql`
+      INSERT INTO takeoffs (estimate_id, file_name, status)
+      VALUES (${estimateId || null}, ${file.name}, 'analyzing')
+      RETURNING *
+    `;
+    const takeoff = takeoffRows[0];
 
     // Convert PDF to images
     let pdfResult;
     try {
       pdfResult = await pdfToImages(buffer);
     } catch (pdfError) {
-      // If PDF conversion fails, try sending the raw content as text
-      await db.from('takeoffs').update({
-        status: 'error',
-        raw_analysis: { error: 'PDF conversion failed: ' + pdfError.message },
-      }).eq('id', takeoff.id);
+      await sql`
+        UPDATE takeoffs SET status = 'error', raw_analysis = ${JSON.stringify({ error: 'PDF conversion failed: ' + pdfError.message })}
+        WHERE id = ${takeoff.id}
+      `;
       return Response.json({ error: 'Failed to process PDF: ' + pdfError.message }, { status: 400 });
     }
 
@@ -89,7 +87,6 @@ export async function POST(request) {
         content.push(imageContent);
         content.push({ type: 'text', text: TAKEOFF_PROMPT });
       } else {
-        // Text fallback — combine text with prompt
         content.push({
           type: 'text',
           text: imageContent.text + '\n\n' + TAKEOFF_PROMPT
@@ -108,10 +105,8 @@ export async function POST(request) {
           .map(b => b.text)
           .join('');
 
-        // Parse JSON from response
         let parsed;
         try {
-          // Try to extract JSON from the response (may be wrapped in markdown)
           const jsonMatch = text.match(/\{[\s\S]*\}/);
           parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : { items: [], rooms: [] };
         } catch {
@@ -135,12 +130,14 @@ export async function POST(request) {
     const aggregated = aggregateItems(allItems);
 
     // Update takeoff record
-    await db.from('takeoffs').update({
-      status: 'complete',
-      page_count: pdfResult.pageCount,
-      raw_analysis: { pages: pageAnalyses, rooms: allRooms },
-      extracted_items: aggregated,
-    }).eq('id', takeoff.id);
+    await sql`
+      UPDATE takeoffs SET
+        status = 'complete',
+        page_count = ${pdfResult.pageCount},
+        raw_analysis = ${JSON.stringify({ pages: pageAnalyses, rooms: allRooms })},
+        extracted_items = ${JSON.stringify(aggregated)}
+      WHERE id = ${takeoff.id}
+    `;
 
     return Response.json({
       takeoff_id: takeoff.id,

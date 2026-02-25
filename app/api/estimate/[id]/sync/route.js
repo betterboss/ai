@@ -1,4 +1,4 @@
-import { getServerClient } from '../../../../lib/db';
+import { getSQL } from '../../../../lib/db';
 import { createJob, createEstimateDocument, searchContacts } from '../../../../lib/jobtread';
 
 export const runtime = 'edge';
@@ -13,17 +13,19 @@ export async function POST(request, { params }) {
       return Response.json({ error: 'JobTread grant key is required' }, { status: 400 });
     }
 
-    const db = getServerClient();
+    const sql = getSQL();
 
     // Load estimate and line items
-    const [estimateRes, itemsRes] = await Promise.all([
-      db.from('estimates').select('*').eq('id', id).single(),
-      db.from('estimate_items').select('*').eq('estimate_id', id).order('sort_order'),
+    const [estimates, items] = await Promise.all([
+      sql`SELECT * FROM estimates WHERE id = ${id}`,
+      sql`SELECT * FROM estimate_items WHERE estimate_id = ${id} ORDER BY sort_order`,
     ]);
 
-    if (estimateRes.error) throw estimateRes.error;
-    const estimate = estimateRes.data;
-    const items = itemsRes.data || [];
+    if (estimates.length === 0) {
+      return Response.json({ error: 'Estimate not found' }, { status: 404 });
+    }
+
+    const estimate = estimates[0];
 
     if (items.length === 0) {
       return Response.json({ error: 'Estimate has no line items to sync' }, { status: 400 });
@@ -55,7 +57,7 @@ export async function POST(request, { params }) {
       quantity: parseFloat(item.quantity) || 1,
       unit_cost: parseFloat(item.unit_cost) || 0,
       unit_price: parseFloat(item.total_price) / (parseFloat(item.quantity) || 1),
-      costCodeId: null, // Will be mapped when catalog has JT cost code IDs
+      costCodeId: null,
     }));
 
     const jtEstimate = await createEstimateDocument(grantKey, {
@@ -66,12 +68,14 @@ export async function POST(request, { params }) {
     });
 
     // Update our estimate with JobTread IDs
-    await db.from('estimates').update({
-      jobtread_job_id: jobId,
-      jobtread_estimate_id: jtEstimate.id,
-      status: 'sent',
-      updated_at: new Date().toISOString(),
-    }).eq('id', id);
+    await sql`
+      UPDATE estimates SET
+        jobtread_job_id = ${jobId},
+        jobtread_estimate_id = ${jtEstimate.id},
+        status = 'sent',
+        updated_at = now()
+      WHERE id = ${id}
+    `;
 
     return Response.json({
       success: true,

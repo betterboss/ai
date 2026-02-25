@@ -1,4 +1,4 @@
-import { getServerClient } from '../../lib/db';
+import { getSQL } from '../../lib/db';
 
 export const runtime = 'edge';
 
@@ -9,18 +9,22 @@ export async function GET(request) {
     const category = searchParams.get('category');
     const search = searchParams.get('search');
     const userId = searchParams.get('userId');
+    const sql = getSQL();
 
-    const db = getServerClient();
-    let query = db.from('catalog_items').select('*').order('category').order('name');
+    let rows;
+    if (category && search) {
+      rows = await sql`SELECT * FROM catalog_items WHERE category = ${category} AND name ILIKE ${'%' + search + '%'} ORDER BY category, name`;
+    } else if (category) {
+      rows = await sql`SELECT * FROM catalog_items WHERE category = ${category} ORDER BY category, name`;
+    } else if (search) {
+      rows = await sql`SELECT * FROM catalog_items WHERE name ILIKE ${'%' + search + '%'} ORDER BY category, name`;
+    } else if (userId) {
+      rows = await sql`SELECT * FROM catalog_items WHERE user_id = ${userId} ORDER BY category, name`;
+    } else {
+      rows = await sql`SELECT * FROM catalog_items ORDER BY category, name`;
+    }
 
-    if (category) query = query.eq('category', category);
-    if (userId) query = query.eq('user_id', userId);
-    if (search) query = query.ilike('name', `%${search}%`);
-
-    const { data, error } = await query;
-    if (error) throw error;
-
-    return Response.json({ items: data });
+    return Response.json({ items: rows });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }
@@ -36,22 +40,14 @@ export async function POST(request) {
       return Response.json({ error: 'Item name is required' }, { status: 400 });
     }
 
-    const db = getServerClient();
-    const { data, error } = await db.from('catalog_items').insert({
-      name,
-      description: description || null,
-      category: category || 'material',
-      unit: unit || 'each',
-      unit_cost: parseFloat(unit_cost) || 0,
-      markup_pct: parseFloat(markup_pct) || 0,
-      supplier: supplier || null,
-      user_id: user_id || null,
-      jobtread_cost_code_id: jobtread_cost_code_id || null,
-    }).select().single();
+    const sql = getSQL();
+    const rows = await sql`
+      INSERT INTO catalog_items (name, description, category, unit, unit_cost, markup_pct, supplier, user_id, jobtread_cost_code_id)
+      VALUES (${name}, ${description || null}, ${category || 'material'}, ${unit || 'each'}, ${parseFloat(unit_cost) || 0}, ${parseFloat(markup_pct) || 0}, ${supplier || null}, ${user_id || null}, ${jobtread_cost_code_id || null})
+      RETURNING *
+    `;
 
-    if (error) throw error;
-
-    return Response.json({ item: data }, { status: 201 });
+    return Response.json({ item: rows[0] }, { status: 201 });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }
@@ -61,24 +57,28 @@ export async function POST(request) {
 export async function PUT(request) {
   try {
     const body = await request.json();
-    const { id, ...updates } = body;
+    const { id } = body;
 
     if (!id) {
       return Response.json({ error: 'Item id is required' }, { status: 400 });
     }
 
-    const db = getServerClient();
-    updates.updated_at = new Date().toISOString();
+    const sql = getSQL();
+    const rows = await sql`
+      UPDATE catalog_items SET
+        name = COALESCE(${body.name || null}, name),
+        description = COALESCE(${body.description || null}, description),
+        category = COALESCE(${body.category || null}, category),
+        unit = COALESCE(${body.unit || null}, unit),
+        unit_cost = COALESCE(${body.unit_cost !== undefined ? parseFloat(body.unit_cost) : null}, unit_cost),
+        markup_pct = COALESCE(${body.markup_pct !== undefined ? parseFloat(body.markup_pct) : null}, markup_pct),
+        supplier = COALESCE(${body.supplier || null}, supplier),
+        updated_at = now()
+      WHERE id = ${id}
+      RETURNING *
+    `;
 
-    const { data, error } = await db.from('catalog_items')
-      .update(updates)
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    return Response.json({ item: data });
+    return Response.json({ item: rows[0] });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }
@@ -94,9 +94,8 @@ export async function DELETE(request) {
       return Response.json({ error: 'id query param is required' }, { status: 400 });
     }
 
-    const db = getServerClient();
-    const { error } = await db.from('catalog_items').delete().eq('id', id);
-    if (error) throw error;
+    const sql = getSQL();
+    await sql`DELETE FROM catalog_items WHERE id = ${id}`;
 
     return Response.json({ success: true });
   } catch (error) {
