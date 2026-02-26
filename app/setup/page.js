@@ -102,7 +102,7 @@ export default function SetupPage() {
             <div key={i} style={styles.stepRow}>
               <div style={{
                 ...styles.stepDot,
-                background: step > i ? '#22c55e' : step === i ? '#5d47fa' : 'rgba(255,255,255,0.08)',
+                background: step > i ? '#34A853' : step === i ? '#4285F4' : 'rgba(255,255,255,0.08)',
                 color: step >= i ? '#fff' : '#6b7280',
               }}>
                 {step > i ? (
@@ -114,7 +114,7 @@ export default function SetupPage() {
                 )}
               </div>
               <span style={{ color: step >= i ? '#e5e7eb' : '#4b5563', fontSize: '0.82em', fontWeight: 500 }}>{label}</span>
-              {i < 3 && <div style={{ ...styles.stepLine, background: step > i ? '#22c55e' : 'rgba(255,255,255,0.06)' }} />}
+              {i < 3 && <div style={{ ...styles.stepLine, background: step > i ? '#34A853' : 'rgba(255,255,255,0.06)' }} />}
             </div>
           ))}
         </div>
@@ -142,7 +142,7 @@ export default function SetupPage() {
         {step === 1 && (
           <div style={styles.card}>
             <div style={styles.cardIcon}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#f59e0b' }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#FBBC05' }}>
                 <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
             </div>
@@ -193,7 +193,7 @@ export default function SetupPage() {
         {step === 2 && (
           <div style={styles.card}>
             <div style={styles.cardIcon}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#a78bfa' }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#8ab4f8' }}>
                 <ellipse cx="12" cy="5" rx="9" ry="3" />
                 <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
                 <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
@@ -222,7 +222,7 @@ export default function SetupPage() {
         {step === 3 && (
           <div style={styles.card}>
             <div style={styles.cardIcon}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#22c55e' }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#34A853' }}>
                 <path d="M15 7h3a5 5 0 015 5 5 5 0 01-5 5h-3m-6 0H6a5 5 0 01-5-5 5 5 0 015-5h3" />
                 <line x1="8" y1="12" x2="16" y2="12" />
               </svg>
@@ -250,7 +250,7 @@ export default function SetupPage() {
             <div style={styles.keySection}>
               <div style={styles.keyHeader}>
                 <strong style={{ color: '#e5e7eb' }}>JobTread Grant Key</strong>
-                <span style={{ ...styles.keyBadge, background: 'rgba(34,197,94,0.1)', color: '#22c55e' }}>For JT sync</span>
+                <span style={{ ...styles.keyBadge, background: 'rgba(52,168,83,0.1)', color: '#34A853' }}>For JT sync</span>
               </div>
               <p style={styles.keyDesc}>
                 Syncs estimates to JobTread as customer orders. Get your grant key from JobTread Settings &gt; API.
@@ -268,7 +268,7 @@ export default function SetupPage() {
                 </button>
               </div>
               {jtResult && (
-                <div style={{ ...styles.testResult, color: jtResult.success ? '#22c55e' : '#ef4444' }}>
+                <div style={{ ...styles.testResult, color: jtResult.success ? '#34A853' : '#EA4335' }}>
                   {jtResult.success ? `Connected to ${jtResult.org}` : jtResult.error}
                 </div>
               )}
@@ -288,8 +288,8 @@ export default function SetupPage() {
         {/* Step 4: Done */}
         {step === 4 && (
           <div style={styles.card}>
-            <div style={{ ...styles.cardIcon, background: 'rgba(34,197,94,0.1)' }}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#22c55e' }}>
+            <div style={{ ...styles.cardIcon, background: 'rgba(52,168,83,0.1)' }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#34A853' }}>
                 <path d="M22 11.08V12a10 10 0 11-5.93-9.14" />
                 <polyline points="22 4 12 14.01 9 11.01" />
               </svg>
@@ -327,13 +327,13 @@ const styles = {
     width: '52px',
     height: '52px',
     borderRadius: '14px',
-    background: 'linear-gradient(135deg, #5d47fa, #7c3aed)',
+    background: 'linear-gradient(135deg, #4285F4, #1a73e8)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     color: '#fff',
     margin: '0 auto 16px',
-    boxShadow: '0 4px 20px rgba(93,71,250,0.4)',
+    boxShadow: '0 4px 20px rgba(66,133,244,0.4)',
   },
   title: {
     fontSize: '1.6em',
@@ -420,8 +420,8 @@ const styles = {
     width: '24px',
     height: '24px',
     borderRadius: '6px',
-    background: 'rgba(93,71,250,0.15)',
-    color: '#a78bfa',
+    background: 'rgba(66,133,244,0.15)',
+    color: '#8ab4f8',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -440,14 +440,14 @@ const styles = {
     alignItems: 'center',
     gap: '8px',
     padding: '10px 22px',
-    background: 'linear-gradient(135deg, #5d47fa 0%, #7c3aed 100%)',
+    background: 'linear-gradient(135deg, #4285F4 0%, #1a73e8 100%)',
     borderRadius: '10px',
     color: '#fff',
     fontWeight: 600,
     fontSize: '0.88em',
     border: 'none',
     cursor: 'pointer',
-    boxShadow: '0 4px 16px rgba(93,71,250,0.3)',
+    boxShadow: '0 4px 16px rgba(66,133,244,0.3)',
   },
   skipBtn: {
     padding: '10px 18px',
@@ -474,8 +474,8 @@ const styles = {
   },
   keyBadge: {
     padding: '2px 8px',
-    background: 'rgba(139,92,246,0.1)',
-    color: '#a78bfa',
+    background: 'rgba(66,133,244,0.1)',
+    color: '#8ab4f8',
     borderRadius: '5px',
     fontSize: '0.68em',
     fontWeight: 600,
@@ -500,10 +500,10 @@ const styles = {
   },
   testBtn: {
     padding: '9px 16px',
-    background: 'rgba(34,197,94,0.1)',
-    border: '1px solid rgba(34,197,94,0.25)',
+    background: 'rgba(52,168,83,0.1)',
+    border: '1px solid rgba(52,168,83,0.25)',
     borderRadius: '8px',
-    color: '#22c55e',
+    color: '#34A853',
     fontSize: '0.82em',
     fontWeight: 600,
     cursor: 'pointer',
@@ -520,10 +520,10 @@ const styles = {
     alignItems: 'center',
     gap: '8px',
     padding: '10px 14px',
-    background: 'rgba(239,68,68,0.08)',
-    border: '1px solid rgba(239,68,68,0.2)',
+    background: 'rgba(234,67,53,0.08)',
+    border: '1px solid rgba(234,67,53,0.2)',
     borderRadius: '10px',
-    color: '#ef4444',
+    color: '#EA4335',
     fontSize: '0.85em',
     marginBottom: '16px',
     textAlign: 'left',
@@ -535,8 +535,8 @@ const styles = {
   spinner: {
     width: '32px',
     height: '32px',
-    border: '3px solid rgba(93,71,250,0.2)',
-    borderTopColor: '#5d47fa',
+    border: '3px solid rgba(66,133,244,0.2)',
+    borderTopColor: '#4285F4',
     borderRadius: '50%',
     animation: 'spin 0.8s linear infinite',
     margin: '0 auto 16px',

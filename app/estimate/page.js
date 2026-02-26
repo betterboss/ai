@@ -4,10 +4,10 @@ import { useState, useEffect } from 'react';
 import Nav from '../components/Nav';
 
 const STATUS_COLORS = {
-  draft: { bg: 'rgba(251,191,36,0.1)', color: '#fbbf24', border: 'rgba(251,191,36,0.25)' },
-  sent: { bg: 'rgba(139,92,246,0.1)', color: '#a78bfa', border: 'rgba(139,92,246,0.25)' },
-  approved: { bg: 'rgba(34,197,94,0.1)', color: '#22c55e', border: 'rgba(34,197,94,0.25)' },
-  rejected: { bg: 'rgba(239,68,68,0.1)', color: '#ef4444', border: 'rgba(239,68,68,0.25)' },
+  draft: { bg: 'rgba(251,188,5,0.1)', color: '#FBBC05', border: 'rgba(251,188,5,0.25)' },
+  sent: { bg: 'rgba(66,133,244,0.1)', color: '#8ab4f8', border: 'rgba(66,133,244,0.25)' },
+  approved: { bg: 'rgba(34,197,94,0.1)', color: '#34A853', border: 'rgba(34,197,94,0.25)' },
+  rejected: { bg: 'rgba(234,67,53,0.1)', color: '#EA4335', border: 'rgba(234,67,53,0.25)' },
 };
 
 export default function EstimateDashboard() {
@@ -78,10 +78,10 @@ export default function EstimateDashboard() {
   }).length;
 
   const stats = [
-    { label: 'Pipeline', value: '$' + totalPipeline.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }), icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z', color: '#22c55e' },
-    { label: 'Avg Margin', value: avgMargin.toFixed(1) + '%', icon: 'M13 7h8m0 0v8m0-8l-8 8-4-4-6 6', color: '#a78bfa' },
+    { label: 'Pipeline', value: '$' + totalPipeline.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }), icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z', color: '#34A853' },
+    { label: 'Avg Margin', value: avgMargin.toFixed(1) + '%', icon: 'M13 7h8m0 0v8m0-8l-8 8-4-4-6 6', color: '#8ab4f8' },
     { label: 'This Month', value: String(thisMonth), icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z', color: '#38bdf8' },
-    { label: 'Total', value: String(estimates.length), icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2', color: '#f59e0b' },
+    { label: 'Total', value: String(estimates.length), icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2', color: '#FBBC05' },
   ];
 
   return (
@@ -92,7 +92,7 @@ export default function EstimateDashboard() {
         {dbError && (
           <div style={{ textAlign: 'center', padding: '60px 20px' }}>
             <div style={{ width: '64px', height: '64px', borderRadius: '16px', background: 'rgba(245,158,11,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#FBBC05" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
             </div>
@@ -280,7 +280,7 @@ const styles = {
     alignItems: 'center',
     gap: '8px',
     padding: '10px 22px',
-    background: 'linear-gradient(135deg, #5d47fa 0%, #7c3aed 100%)',
+    background: 'linear-gradient(135deg, #4285F4 0%, #1a73e8 100%)',
     borderRadius: '10px',
     color: '#fff',
     textDecoration: 'none',
@@ -288,7 +288,7 @@ const styles = {
     fontSize: '0.9em',
     border: 'none',
     cursor: 'pointer',
-    boxShadow: '0 4px 16px rgba(93,71,250,0.35)',
+    boxShadow: '0 4px 16px rgba(66,133,244,0.35)',
     transition: 'all 0.2s',
   },
   statsRow: {
@@ -345,9 +345,9 @@ const styles = {
     transition: 'all 0.15s',
   },
   filterActive: {
-    background: 'rgba(93,71,250,0.12)',
-    borderColor: 'rgba(93,71,250,0.3)',
-    color: '#a78bfa',
+    background: 'rgba(66,133,244,0.12)',
+    borderColor: 'rgba(66,133,244,0.3)',
+    color: '#8ab4f8',
   },
   list: {
     display: 'flex',
@@ -416,7 +416,7 @@ const styles = {
   cardPrice: {
     fontWeight: 700,
     fontSize: '1.1em',
-    color: '#22c55e',
+    color: '#34A853',
     fontVariantNumeric: 'tabular-nums',
   },
   cardMargin: {
@@ -442,8 +442,8 @@ const styles = {
   spinner: {
     width: '32px',
     height: '32px',
-    border: '3px solid rgba(93,71,250,0.2)',
-    borderTopColor: '#5d47fa',
+    border: '3px solid rgba(66,133,244,0.2)',
+    borderTopColor: '#4285F4',
     borderRadius: '50%',
     animation: 'spin 0.8s linear infinite',
     margin: '0 auto 16px',

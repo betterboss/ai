@@ -47,7 +47,7 @@ const BETTER_BOSS_KNOWLEDGE = `
 
 ## BRAND GUIDELINES
 - Light theme: #fffdfd
-- Purple accents: #5d47fa, #7a64ff
+- Google Blue accents: #4285F4, #5a9cf6
 - Font: Inter (italic logo styling)
 - Black text
 

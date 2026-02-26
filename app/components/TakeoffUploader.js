@@ -74,7 +74,7 @@ export default function TakeoffUploader({ estimateId, apiKey, onTakeoffComplete 
           {uploading ? (
             <div style={styles.uploadSpinner} />
           ) : (
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#a78bfa' }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#8ab4f8' }}>
               <path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
             </svg>
           )}
@@ -137,13 +137,13 @@ export default function TakeoffUploader({ estimateId, apiKey, onTakeoffComplete 
 const styles = {
   uploadArea: {
     position: 'relative',
-    border: '1px dashed rgba(139,92,246,0.3)',
+    border: '1px dashed rgba(66,133,244,0.3)',
     borderRadius: '10px',
     padding: '20px',
     textAlign: 'center',
     cursor: 'pointer',
     transition: 'all 0.2s',
-    background: 'rgba(139,92,246,0.03)',
+    background: 'rgba(66,133,244,0.03)',
   },
   fileInput: {
     position: 'absolute',
@@ -164,8 +164,8 @@ const styles = {
   uploadSpinner: {
     width: '24px',
     height: '24px',
-    border: '2px solid rgba(139,92,246,0.2)',
-    borderTopColor: '#a78bfa',
+    border: '2px solid rgba(66,133,244,0.2)',
+    borderTopColor: '#8ab4f8',
     borderRadius: '50%',
     animation: 'spin 0.8s linear infinite',
   },
@@ -184,10 +184,10 @@ const styles = {
     gap: '6px',
     marginTop: '8px',
     padding: '8px 10px',
-    background: 'rgba(34,197,94,0.06)',
-    border: '1px solid rgba(34,197,94,0.15)',
+    background: 'rgba(52,168,83,0.06)',
+    border: '1px solid rgba(52,168,83,0.15)',
     borderRadius: '8px',
-    color: '#22c55e',
+    color: '#34A853',
     fontSize: '0.78em',
   },
   error: {
@@ -199,7 +199,7 @@ const styles = {
     background: 'rgba(239,68,68,0.06)',
     border: '1px solid rgba(239,68,68,0.15)',
     borderRadius: '8px',
-    color: '#ef4444',
+    color: '#EA4335',
     fontSize: '0.78em',
   },
   fileList: {
@@ -225,7 +225,7 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    color: '#ef4444',
+    color: '#EA4335',
     flexShrink: 0,
   },
   fileName: {

@@ -44,12 +44,12 @@ export default function RootLayout({ children }) {
           ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
 
           /* Selection */
-          ::selection { background: rgba(93,71,250,0.3); color: #fff; }
+          ::selection { background: rgba(66,133,244,0.3); color: #fff; }
 
           /* Focus styles */
           input:focus, textarea:focus, select:focus {
-            border-color: rgba(93,71,250,0.5) !important;
-            box-shadow: 0 0 0 3px rgba(93,71,250,0.1);
+            border-color: rgba(66,133,244,0.5) !important;
+            box-shadow: 0 0 0 3px rgba(66,133,244,0.1);
             outline: none;
           }
 

@@ -125,14 +125,14 @@ function appendMessage(role, text, sources, skillResults, usage) {
       if (result.type === 'error_notice') {
         const noticeDiv = document.createElement('div');
         noticeDiv.className = 'sources-box';
-        noticeDiv.innerHTML = `<div style="font-size:12px;color:#f59e0b;">⚠️ ${escapeHtml(result.error)}</div>`;
+        noticeDiv.innerHTML = `<div style="font-size:12px;color:#FBBC05;">⚠️ ${escapeHtml(result.error)}</div>`;
         container.appendChild(noticeDiv);
         continue;
       }
       if (result.error) {
         var errDiv = document.createElement('div');
         errDiv.className = 'sources-box';
-        errDiv.innerHTML = '<div style="font-size:12px;color:#ef4444;">\u274C ' + escapeHtml(result.skill || 'Skill') + ' failed: ' + escapeHtml(result.error) + '</div>';
+        errDiv.innerHTML = '<div style="font-size:12px;color:#EA4335;">\u274C ' + escapeHtml(result.skill || 'Skill') + ' failed: ' + escapeHtml(result.error) + '</div>';
         container.appendChild(errDiv);
         continue;
       }
@@ -248,7 +248,7 @@ function renderBusinessOverview(result) {
         <div class="insight-metric-label">Pipeline (${d.pendingEstimates})</div>
       </div>
       <div class="insight-metric">
-        <div class="insight-metric-value" style="color:#ef4444;">${fmtDollars(d.totalAR)}</div>
+        <div class="insight-metric-value" style="color:#EA4335;">${fmtDollars(d.totalAR)}</div>
         <div class="insight-metric-label">Outstanding AR</div>
       </div>
     </div>
@@ -272,11 +272,11 @@ function renderCashFlow(result) {
     <div class="insight-title">💰 Cash Flow</div>
     <div class="insight-grid">
       <div class="insight-metric">
-        <div class="insight-metric-value" style="color:#f59e0b;">${fmtDollars(d.pipelineValue)}</div>
+        <div class="insight-metric-value" style="color:#FBBC05;">${fmtDollars(d.pipelineValue)}</div>
         <div class="insight-metric-label">Pipeline (${d.pendingEstimateCount})</div>
       </div>
       <div class="insight-metric">
-        <div class="insight-metric-value" style="color:#ef4444;">${fmtDollars(d.totalAR)}</div>
+        <div class="insight-metric-value" style="color:#EA4335;">${fmtDollars(d.totalAR)}</div>
         <div class="insight-metric-label">Receivables (${d.unpaidInvoiceCount})</div>
       </div>
     </div>
@@ -327,7 +327,7 @@ function renderClientHistory(result) {
     <div class="insight-status">${d.title ? escapeHtml(d.title) + ' — ' : ''}${escapeHtml(d.accountName || '')}${d.accountType ? ' (' + escapeHtml(d.accountType) + ')' : ''}</div>
     <div class="insight-grid">
       <div class="insight-metric"><div class="insight-metric-value">${d.totalJobs}</div><div class="insight-metric-label">Total Jobs</div></div>
-      <div class="insight-metric"><div class="insight-metric-value" style="color:#10b981;">${d.activeJobs}</div><div class="insight-metric-label">Active</div></div>
+      <div class="insight-metric"><div class="insight-metric-value" style="color:#34A853;">${d.activeJobs}</div><div class="insight-metric-label">Active</div></div>
       <div class="insight-metric"><div class="insight-metric-value">${d.closedJobs}</div><div class="insight-metric-label">Completed</div></div>
     </div>
   `;
@@ -351,7 +351,7 @@ function renderClientHistory(result) {
 function renderMemorySave(result) {
   const div = document.createElement('div');
   div.className = 'sources-box';
-  div.innerHTML = `<div style="font-size:12px;color:#10b981;">🧠 Saved to memory: <strong>${escapeHtml(result.key)}</strong> = ${escapeHtml(result.value)}</div>`;
+  div.innerHTML = `<div style="font-size:12px;color:#34A853;">🧠 Saved to memory: <strong>${escapeHtml(result.key)}</strong> = ${escapeHtml(result.value)}</div>`;
   return div;
 }
 
@@ -463,7 +463,7 @@ async function loadPageContext() {
     const ctx = response.context || '';
     if (ctx && !ctx.includes('Not on')) {
       el.textContent = '🟢 Connected to JobTread';
-      el.style.color = '#10b981';
+      el.style.color = '#34A853';
     } else {
       el.textContent = 'JobTread AI Assistant';
     }
@@ -617,16 +617,16 @@ async function testConnection() {
     const response = await chrome.runtime.sendMessage({ action: 'TEST_JT_CONNECTION' });
     if (response.error) {
       resultDiv.style.background = 'rgba(239,68,68,0.1)';
-      resultDiv.style.color = '#ef4444';
+      resultDiv.style.color = '#EA4335';
       resultDiv.textContent = 'Failed: ' + response.error;
     } else {
       resultDiv.style.background = 'rgba(16,185,129,0.1)';
-      resultDiv.style.color = '#10b981';
+      resultDiv.style.color = '#34A853';
       resultDiv.textContent = 'Connected! ' + (response.info || '');
     }
   } catch (err) {
     resultDiv.style.background = 'rgba(239,68,68,0.1)';
-    resultDiv.style.color = '#ef4444';
+    resultDiv.style.color = '#EA4335';
     resultDiv.textContent = 'Error: ' + err.message;
   }
   btn.disabled = false;

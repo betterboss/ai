@@ -95,7 +95,7 @@ export default function NewEstimate() {
             </div>
             <div style={styles.grid}>
               <div style={styles.field}>
-                <label style={styles.label}>Estimate Name <span style={{ color: '#ef4444' }}>*</span></label>
+                <label style={styles.label}>Estimate Name <span style={{ color: '#EA4335' }}>*</span></label>
                 <input
                   style={styles.input}
                   placeholder="e.g., Kitchen Remodel - Smith"
@@ -156,7 +156,7 @@ export default function NewEstimate() {
           {/* AI Quick Start Card */}
           <div style={styles.card}>
             <div style={styles.cardTitleRow}>
-              <div style={{ ...styles.cardIconBox, background: 'linear-gradient(135deg, #5d47fa, #7c3aed)' }}>
+              <div style={{ ...styles.cardIconBox, background: 'linear-gradient(135deg, #4285F4, #1a73e8)' }}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
                 </svg>
@@ -310,7 +310,7 @@ const styles = {
   },
   aiBadge: {
     padding: '2px 8px',
-    background: 'linear-gradient(135deg, #5d47fa, #7c3aed)',
+    background: 'linear-gradient(135deg, #4285F4, #1a73e8)',
     borderRadius: '5px',
     fontSize: '0.68em',
     fontWeight: 700,
@@ -370,9 +370,9 @@ const styles = {
     transition: 'all 0.15s',
   },
   modeBtnActive: {
-    background: 'rgba(93,71,250,0.1)',
-    borderColor: 'rgba(93,71,250,0.35)',
-    color: '#a78bfa',
+    background: 'rgba(66,133,244,0.1)',
+    borderColor: 'rgba(66,133,244,0.35)',
+    color: '#8ab4f8',
   },
   scopeHint: {
     color: '#6b7280',
@@ -384,10 +384,10 @@ const styles = {
     alignItems: 'center',
     gap: '8px',
     padding: '12px 16px',
-    background: 'rgba(239,68,68,0.08)',
-    border: '1px solid rgba(239,68,68,0.2)',
+    background: 'rgba(234,67,53,0.08)',
+    border: '1px solid rgba(234,67,53,0.2)',
     borderRadius: '10px',
-    color: '#ef4444',
+    color: '#EA4335',
     fontSize: '0.88em',
   },
   actions: {
@@ -413,14 +413,14 @@ const styles = {
     alignItems: 'center',
     gap: '8px',
     padding: '10px 24px',
-    background: 'linear-gradient(135deg, #5d47fa 0%, #7c3aed 100%)',
+    background: 'linear-gradient(135deg, #4285F4 0%, #1a73e8 100%)',
     borderRadius: '10px',
     color: '#fff',
     fontWeight: 600,
     fontSize: '0.9em',
     border: 'none',
     cursor: 'pointer',
-    boxShadow: '0 4px 16px rgba(93,71,250,0.3)',
+    boxShadow: '0 4px 16px rgba(66,133,244,0.3)',
     transition: 'all 0.2s',
   },
   btnSpinner: {

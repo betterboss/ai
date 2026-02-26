@@ -8,15 +8,15 @@ import TakeoffUploader from '../../components/TakeoffUploader';
 import CatalogPicker from '../../components/CatalogPicker';
 
 const STATUS_COLORS = {
-  draft: { bg: 'rgba(251,191,36,0.1)', color: '#fbbf24', border: 'rgba(251,191,36,0.25)' },
-  sent: { bg: 'rgba(139,92,246,0.1)', color: '#a78bfa', border: 'rgba(139,92,246,0.25)' },
-  approved: { bg: 'rgba(34,197,94,0.1)', color: '#22c55e', border: 'rgba(34,197,94,0.25)' },
-  rejected: { bg: 'rgba(239,68,68,0.1)', color: '#ef4444', border: 'rgba(239,68,68,0.25)' },
+  draft: { bg: 'rgba(251,188,5,0.1)', color: '#FBBC05', border: 'rgba(251,188,5,0.25)' },
+  sent: { bg: 'rgba(66,133,244,0.1)', color: '#8ab4f8', border: 'rgba(66,133,244,0.25)' },
+  approved: { bg: 'rgba(52,168,83,0.1)', color: '#34A853', border: 'rgba(52,168,83,0.25)' },
+  rejected: { bg: 'rgba(234,67,53,0.1)', color: '#EA4335', border: 'rgba(234,67,53,0.25)' },
 };
 
 const SEVERITY_COLORS = {
-  high: '#ef4444',
-  medium: '#f59e0b',
+  high: '#EA4335',
+  medium: '#FBBC05',
   low: '#6b7280',
 };
 
@@ -284,7 +284,7 @@ export default function EstimateEditor() {
       <div style={styles.page}>
         <Nav />
         <div style={styles.loadingWrap}>
-          <p style={{ color: '#ef4444' }}>Estimate not found</p>
+          <p style={{ color: '#EA4335' }}>Estimate not found</p>
           <a href="/estimate" style={styles.backLink}>Back to Estimates</a>
         </div>
       </div>
@@ -340,7 +340,7 @@ export default function EstimateEditor() {
             </div>
             <div style={styles.marginBlock}>
               <div style={styles.marginLabel}>Margin</div>
-              <div style={{ ...styles.marginValue, color: margin >= 20 ? '#22c55e' : margin >= 10 ? '#f59e0b' : '#ef4444' }}>
+              <div style={{ ...styles.marginValue, color: margin >= 20 ? '#34A853' : margin >= 10 ? '#FBBC05' : '#EA4335' }}>
                 {margin.toFixed(1)}%
               </div>
             </div>
@@ -534,13 +534,13 @@ export default function EstimateEditor() {
               <div style={styles.reviewPanel}>
                 <div style={styles.reviewHeader}>
                   <div style={styles.reviewTitleRow}>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#a78bfa' }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#8ab4f8' }}>
                       <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     <span style={styles.reviewTitle}>AI Review</span>
                     <span style={{
                       ...styles.reviewScore,
-                      color: reviewResult.score >= 80 ? '#22c55e' : reviewResult.score >= 60 ? '#f59e0b' : '#ef4444'
+                      color: reviewResult.score >= 80 ? '#34A853' : reviewResult.score >= 60 ? '#FBBC05' : '#EA4335'
                     }}>
                       {reviewResult.score}/100
                     </span>
@@ -649,8 +649,8 @@ const styles = {
   spinner: {
     width: '32px',
     height: '32px',
-    border: '3px solid rgba(93,71,250,0.2)',
-    borderTopColor: '#5d47fa',
+    border: '3px solid rgba(66,133,244,0.2)',
+    borderTopColor: '#4285F4',
     borderRadius: '50%',
     animation: 'spin 0.8s linear infinite',
     margin: '0 auto 16px',
@@ -672,9 +672,9 @@ const styles = {
   },
   savingBadge: {
     padding: '3px 10px',
-    background: 'rgba(93,71,250,0.1)',
+    background: 'rgba(66,133,244,0.1)',
     borderRadius: '6px',
-    color: '#a78bfa',
+    color: '#8ab4f8',
     fontSize: '0.75em',
     fontWeight: 500,
   },
@@ -719,7 +719,7 @@ const styles = {
   },
   priceBlock: { textAlign: 'right' },
   priceLabel: { fontSize: '0.72em', color: '#6b7280', marginBottom: '2px' },
-  priceValue: { fontSize: '1.5em', fontWeight: 800, color: '#22c55e', fontVariantNumeric: 'tabular-nums' },
+  priceValue: { fontSize: '1.5em', fontWeight: 800, color: '#34A853', fontVariantNumeric: 'tabular-nums' },
   marginBlock: { textAlign: 'right' },
   marginLabel: { fontSize: '0.72em', color: '#6b7280', marginBottom: '2px' },
   marginValue: { fontSize: '1.5em', fontWeight: 800, fontVariantNumeric: 'tabular-nums' },
@@ -728,10 +728,10 @@ const styles = {
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: '10px 14px',
-    background: 'rgba(239,68,68,0.08)',
-    border: '1px solid rgba(239,68,68,0.2)',
+    background: 'rgba(234,67,53,0.08)',
+    border: '1px solid rgba(234,67,53,0.2)',
     borderRadius: '10px',
-    color: '#ef4444',
+    color: '#EA4335',
     fontSize: '0.88em',
     marginBottom: '16px',
   },
@@ -740,10 +740,10 @@ const styles = {
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: '10px 14px',
-    background: 'rgba(34,197,94,0.08)',
-    border: '1px solid rgba(34,197,94,0.2)',
+    background: 'rgba(52,168,83,0.08)',
+    border: '1px solid rgba(52,168,83,0.2)',
     borderRadius: '10px',
-    color: '#22c55e',
+    color: '#34A853',
     fontSize: '0.88em',
     marginBottom: '16px',
   },
@@ -802,10 +802,10 @@ const styles = {
     justifyContent: 'center',
     gap: '6px',
     padding: '9px 12px',
-    background: 'rgba(251,191,36,0.08)',
-    border: '1px solid rgba(251,191,36,0.2)',
+    background: 'rgba(251,188,5,0.08)',
+    border: '1px solid rgba(251,188,5,0.2)',
     borderRadius: '8px',
-    color: '#fbbf24',
+    color: '#FBBC05',
     fontWeight: 600,
     cursor: 'pointer',
     fontSize: '0.82em',
@@ -816,7 +816,7 @@ const styles = {
     justifyContent: 'center',
     gap: '6px',
     padding: '9px 12px',
-    background: 'linear-gradient(135deg, #5d47fa 0%, #7c3aed 100%)',
+    background: 'linear-gradient(135deg, #4285F4 0%, #1a73e8 100%)',
     border: 'none',
     borderRadius: '8px',
     color: '#fff',
@@ -887,8 +887,8 @@ const styles = {
     minWidth: 0,
   },
   reviewPanel: {
-    background: 'rgba(139,92,246,0.05)',
-    border: '1px solid rgba(139,92,246,0.15)',
+    background: 'rgba(66,133,244,0.05)',
+    border: '1px solid rgba(66,133,244,0.15)',
     borderRadius: '12px',
     padding: '18px',
     marginBottom: '20px',
@@ -962,10 +962,10 @@ const styles = {
     display: 'inline-flex',
     alignItems: 'center',
     gap: '4px',
-    background: 'rgba(93,71,250,0.1)',
-    border: '1px solid rgba(93,71,250,0.25)',
+    background: 'rgba(66,133,244,0.1)',
+    border: '1px solid rgba(66,133,244,0.25)',
     borderRadius: '6px',
-    color: '#a78bfa',
+    color: '#8ab4f8',
     padding: '4px 10px',
     fontSize: '0.78em',
     cursor: 'pointer',
@@ -1003,10 +1003,10 @@ const styles = {
     alignItems: 'center',
     gap: '6px',
     padding: '7px 14px',
-    background: 'rgba(93,71,250,0.12)',
-    border: '1px solid rgba(93,71,250,0.25)',
+    background: 'rgba(66,133,244,0.12)',
+    border: '1px solid rgba(66,133,244,0.25)',
     borderRadius: '8px',
-    color: '#a78bfa',
+    color: '#8ab4f8',
     cursor: 'pointer',
     fontSize: '0.82em',
     fontWeight: 500,
