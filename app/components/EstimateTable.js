@@ -110,7 +110,7 @@ export default function EstimateTable({ items, onUpdateItem, onDeleteItem, onAdd
               <td style={{ ...styles.footTd, fontWeight: 700, textAlign: 'right' }}>
                 ${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}
               </td>
-              <td style={{ ...styles.footTd, fontWeight: 700, textAlign: 'right', color: '#22c55e' }}>
+              <td style={{ ...styles.footTd, fontWeight: 700, textAlign: 'right', color: '#34A853' }}>
                 ${totalPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}
               </td>
               <td style={styles.footTd}></td>
@@ -188,7 +188,7 @@ function CategoryGroup({ category, items, editingId, editValues, setEditValues, 
               <td style={{ ...styles.td, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>${parseFloat(item.unit_cost || 0).toFixed(2)}</td>
               <td style={{ ...styles.td, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{item.markup_pct}%</td>
               <td style={{ ...styles.td, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>${parseFloat(item.total_cost || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
-              <td style={{ ...styles.td, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: '#22c55e', fontWeight: 600 }}>${parseFloat(item.total_price || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+              <td style={{ ...styles.td, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: '#34A853', fontWeight: 600 }}>${parseFloat(item.total_price || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
               <td style={{ ...styles.td, textAlign: 'center' }}>
                 <div style={styles.rowActions}>
                   <button onClick={() => startEdit(item)} style={styles.editBtn} title="Edit">
@@ -251,15 +251,15 @@ const styles = {
   },
   categoryRow: {
     padding: '8px 14px',
-    background: 'rgba(93,71,250,0.06)',
-    borderBottom: '1px solid rgba(93,71,250,0.12)',
+    background: 'rgba(66,133,244,0.06)',
+    borderBottom: '1px solid rgba(66,133,244,0.12)',
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
   categoryLabel: {
     fontWeight: 700,
-    color: '#a78bfa',
+    color: '#8ab4f8',
     fontSize: '0.78em',
     textTransform: 'uppercase',
     letterSpacing: '0.5px',
@@ -279,8 +279,8 @@ const styles = {
   editInput: {
     width: '100%',
     padding: '6px 8px',
-    background: 'rgba(93,71,250,0.08)',
-    border: '1px solid rgba(93,71,250,0.3)',
+    background: 'rgba(66,133,244,0.08)',
+    border: '1px solid rgba(66,133,244,0.3)',
     borderRadius: '6px',
     color: '#f3f4f6',
     fontSize: '0.92em',
@@ -323,10 +323,10 @@ const styles = {
   },
   saveBtn: {
     padding: '5px',
-    background: 'rgba(34,197,94,0.1)',
-    border: '1px solid rgba(34,197,94,0.25)',
+    background: 'rgba(52,168,83,0.1)',
+    border: '1px solid rgba(52,168,83,0.25)',
     borderRadius: '6px',
-    color: '#22c55e',
+    color: '#34A853',
     cursor: 'pointer',
     display: 'flex',
     alignItems: 'center',
@@ -350,9 +350,9 @@ const styles = {
     marginTop: '12px',
     padding: '9px 16px',
     background: 'transparent',
-    border: '1px dashed rgba(93,71,250,0.3)',
+    border: '1px dashed rgba(66,133,244,0.3)',
     borderRadius: '8px',
-    color: '#a78bfa',
+    color: '#8ab4f8',
     cursor: 'pointer',
     fontSize: '0.85em',
     fontWeight: 500,
@@ -390,13 +390,13 @@ const styles = {
     alignItems: 'center',
     gap: '6px',
     padding: '9px 20px',
-    background: 'linear-gradient(135deg, #5d47fa 0%, #7c3aed 100%)',
+    background: 'linear-gradient(135deg, #4285F4 0%, #1a73e8 100%)',
     border: 'none',
     borderRadius: '8px',
     color: '#fff',
     cursor: 'pointer',
     fontSize: '0.88em',
     fontWeight: 600,
-    boxShadow: '0 4px 12px rgba(93,71,250,0.3)',
+    boxShadow: '0 4px 12px rgba(66,133,244,0.3)',
   },
 };

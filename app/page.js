@@ -72,7 +72,7 @@ export default function Home() {
 
     window.Cal("init", { origin: "https://cal.com" });
     window.Cal("ui", {
-      styles: { branding: { brandColor: "#5d47fa" } },
+      styles: { branding: { brandColor: "#4285F4" } },
       hideEventTypeDetails: false,
       layout: "month_view"
     });
@@ -407,7 +407,7 @@ export default function Home() {
                   onClick={() => setActiveTab(tab)}
                   style={{
                     ...styles.tab,
-                    background: activeTab === tab ? '#5d47fa' : 'transparent',
+                    background: activeTab === tab ? '#4285F4' : 'transparent',
                     color: activeTab === tab ? '#fff' : '#6b6b8a'
                   }}
                 >
@@ -503,14 +503,14 @@ export default function Home() {
                 >
                   Change API Key
                 </button>
-                <div style={{marginTop: 24, paddingTop: 24, borderTop: '1px solid rgba(93,71,250,0.2)'}}>
+                <div style={{marginTop: 24, paddingTop: 24, borderTop: '1px solid rgba(66,133,244,0.2)'}}>
                   <button
                     onClick={() => {
                       localStorage.removeItem('mrBetterBoss_apiKey');
                       localStorage.removeItem('mrBetterBoss_settings');
                       window.location.reload();
                     }}
-                    style={{...styles.secondaryBtn, color: '#ef4444', borderColor: 'rgba(239,68,68,0.3)'}}
+                    style={{...styles.secondaryBtn, color: '#EA4335', borderColor: 'rgba(234,67,53,0.3)'}}
                   >
                     Reset Everything
                   </button>
@@ -536,7 +536,7 @@ export default function Home() {
           <span style={styles.avatarBolt}>⚡</span>
         </div>
         <div style={styles.headerInfo}>
-          <div style={styles.headerTitle}>{settings.botName} <span style={{color: '#f59e0b'}}>⚡</span></div>
+          <div style={styles.headerTitle}>{settings.botName} <span style={{color: '#FBBC05'}}>⚡</span></div>
           <div style={styles.headerSubtitle}>{settings.tagline}</div>
         </div>
         <button onClick={openBooking} style={styles.bookBtnHeader}>
@@ -560,7 +560,7 @@ export default function Home() {
               </span>
               <span style={{position: 'absolute', bottom: 28, fontSize: 32}}>⚡</span>
             </div>
-            <h1 style={styles.welcomeTitle}>Hey there! <span style={{color: '#f59e0b'}}>⚡</span></h1>
+            <h1 style={styles.welcomeTitle}>Hey there! <span style={{color: '#FBBC05'}}>⚡</span></h1>
             <p style={styles.welcomeText}
                dangerouslySetInnerHTML={{ __html: formatContent(settings.welcomeMessage) }}
             />
@@ -714,18 +714,18 @@ export default function Home() {
         }
         /* Markdown rendering styles */
         .md-h { margin: 12px 0 6px; font-weight: 700; line-height: 1.3; }
-        h2.md-h { font-size: 1.25em; color: #a78bfa; }
-        h3.md-h { font-size: 1.1em; color: #a78bfa; }
-        h4.md-h { font-size: 1em; color: #a78bfa; }
+        h2.md-h { font-size: 1.25em; color: #8ab4f8; }
+        h3.md-h { font-size: 1.1em; color: #8ab4f8; }
+        h4.md-h { font-size: 1em; color: #8ab4f8; }
         .md-p { margin: 6px 0; line-height: 1.7; }
         .md-list { margin: 8px 0; padding-left: 24px; }
         .md-list li { margin: 4px 0; line-height: 1.6; }
-        .md-link { color: #7a64ff; text-decoration: none; border-bottom: 1px solid rgba(122,100,255,0.4); transition: border-color 0.2s; }
-        .md-link:hover { border-color: #7a64ff; }
-        .md-inline-code { background: rgba(93,71,250,0.2); padding: 2px 7px; border-radius: 5px; font-size: 0.9em; font-family: 'SF Mono', Monaco, Consolas, monospace; }
-        .md-code-block { background: #13132a; border: 1px solid rgba(93,71,250,0.25); border-radius: 12px; padding: 16px; margin: 10px 0; overflow-x: auto; font-size: 0.88em; line-height: 1.6; font-family: 'SF Mono', Monaco, Consolas, monospace; }
-        .md-code-block code { color: #c4b5fd; }
-        .md-hr { border: none; height: 1px; background: rgba(93,71,250,0.25); margin: 16px 0; }
+        .md-link { color: #5a9cf6; text-decoration: none; border-bottom: 1px solid rgba(90,156,246,0.4); transition: border-color 0.2s; }
+        .md-link:hover { border-color: #5a9cf6; }
+        .md-inline-code { background: rgba(66,133,244,0.2); padding: 2px 7px; border-radius: 5px; font-size: 0.9em; font-family: 'SF Mono', Monaco, Consolas, monospace; }
+        .md-code-block { background: #0d1117; border: 1px solid rgba(66,133,244,0.25); border-radius: 12px; padding: 16px; margin: 10px 0; overflow-x: auto; font-size: 0.88em; line-height: 1.6; font-family: 'SF Mono', Monaco, Consolas, monospace; }
+        .md-code-block code { color: #a8c7fa; }
+        .md-hr { border: none; height: 1px; background: rgba(66,133,244,0.25); margin: 16px 0; }
       `}</style>
     </div>
   );
@@ -764,7 +764,7 @@ const styles = {
   modalRobot: {
     width: 90,
     height: 90,
-    background: 'linear-gradient(145deg, #5d47fa, #4a38d4)',
+    background: 'linear-gradient(145deg, #4285F4, #3367d6)',
     borderRadius: 24,
     margin: '0 auto 24px',
     display: 'flex',
@@ -803,7 +803,7 @@ const styles = {
   input: {
     flex: 1,
     background: '#1a1a2e',
-    border: '2px solid rgba(93,71,250,0.3)',
+    border: '2px solid rgba(66,133,244,0.3)',
     borderRadius: 12,
     padding: 14,
     color: '#fff',
@@ -812,7 +812,7 @@ const styles = {
   },
   toggleBtn: {
     background: '#1a1a2e',
-    border: '2px solid rgba(93,71,250,0.3)',
+    border: '2px solid rgba(66,133,244,0.3)',
     borderRadius: 12,
     padding: '0 16px',
     color: '#6b6b8a',
@@ -820,20 +820,20 @@ const styles = {
     fontSize: 16,
   },
   helpText: { fontSize: 13, color: '#6b6b8a', marginTop: 10 },
-  link: { color: '#7a64ff', textDecoration: 'none' },
+  link: { color: '#5a9cf6', textDecoration: 'none' },
   error: {
-    background: 'rgba(239,68,68,0.15)',
-    border: '1px solid rgba(239,68,68,0.3)',
+    background: 'rgba(234,67,53,0.15)',
+    border: '1px solid rgba(234,67,53,0.3)',
     borderRadius: 10,
     padding: 12,
     marginBottom: 16,
-    color: '#ef4444',
+    color: '#EA4335',
     fontSize: 14,
   },
   primaryBtn: {
     width: '100%',
     padding: 16,
-    background: 'linear-gradient(135deg, #5d47fa, #7a64ff)',
+    background: 'linear-gradient(135deg, #4285F4, #5a9cf6)',
     border: 'none',
     borderRadius: 12,
     color: '#fff',
@@ -845,7 +845,7 @@ const styles = {
     flex: 1,
     padding: 14,
     background: '#1a1a2e',
-    border: '2px solid rgba(93,71,250,0.3)',
+    border: '2px solid rgba(66,133,244,0.3)',
     borderRadius: 12,
     color: '#fff',
     fontSize: 14,
@@ -855,7 +855,7 @@ const styles = {
   bookingBtnLarge: {
     width: '100%',
     padding: 16,
-    background: 'linear-gradient(135deg, #10b981, #059669)',
+    background: 'linear-gradient(135deg, #34A853, #2d9248)',
     border: 'none',
     borderRadius: 12,
     color: '#fff',
@@ -871,18 +871,18 @@ const styles = {
     marginTop: 8,
   },
   // Tabs
-  tabs: { display: 'flex', gap: 8, marginBottom: 20, borderBottom: '1px solid rgba(93,71,250,0.2)', paddingBottom: 12 },
+  tabs: { display: 'flex', gap: 8, marginBottom: 20, borderBottom: '1px solid rgba(66,133,244,0.2)', paddingBottom: 12 },
   tab: { padding: '10px 18px', border: 'none', borderRadius: 10, cursor: 'pointer', fontSize: 14 },
   tabContent: { display: 'flex', flexDirection: 'column', gap: 16 },
   // Quick action editor
   quickActionEditor: { display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 },
-  deleteBtn: { background: 'rgba(239,68,68,0.2)', border: 'none', borderRadius: 10, width: 40, height: 40, color: '#ef4444', cursor: 'pointer', fontSize: 16 },
-  addBtn: { padding: 14, background: 'transparent', border: '2px dashed rgba(93,71,250,0.3)', borderRadius: 12, color: '#6b6b8a', cursor: 'pointer', width: '100%' },
+  deleteBtn: { background: 'rgba(234,67,53,0.2)', border: 'none', borderRadius: 10, width: 40, height: 40, color: '#EA4335', cursor: 'pointer', fontSize: 16 },
+  addBtn: { padding: 14, background: 'transparent', border: '2px dashed rgba(66,133,244,0.3)', borderRadius: 12, color: '#6b6b8a', cursor: 'pointer', width: '100%' },
   // Header
   header: {
     padding: '16px 24px',
     background: 'linear-gradient(135deg, #25253d, #1a1a2e)',
-    borderBottom: '1px solid rgba(93,71,250,0.3)',
+    borderBottom: '1px solid rgba(66,133,244,0.3)',
     display: 'flex',
     alignItems: 'center',
     gap: 12,
@@ -891,13 +891,13 @@ const styles = {
   avatar: {
     width: 48,
     height: 48,
-    background: 'linear-gradient(145deg, #5d47fa, #4a38d4)',
+    background: 'linear-gradient(145deg, #4285F4, #3367d6)',
     borderRadius: 14,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
-    boxShadow: '0 4px 20px rgba(93,71,250,0.4)',
+    boxShadow: '0 4px 20px rgba(66,133,244,0.4)',
     flexShrink: 0,
   },
   avatarEyes: { position: 'absolute', top: 10, display: 'flex', gap: 8 },
@@ -908,7 +908,7 @@ const styles = {
   headerSubtitle: { fontSize: 13, color: '#6b6b8a', marginTop: 2 },
   bookBtnHeader: {
     padding: '10px 18px',
-    background: 'linear-gradient(135deg, #10b981, #059669)',
+    background: 'linear-gradient(135deg, #34A853, #2d9248)',
     border: 'none',
     borderRadius: 12,
     color: '#fff',
@@ -920,8 +920,8 @@ const styles = {
   },
   headerBtn: {
     padding: '10px 14px',
-    background: 'rgba(93,71,250,0.15)',
-    border: '1px solid rgba(93,71,250,0.3)',
+    background: 'rgba(66,133,244,0.15)',
+    border: '1px solid rgba(66,133,244,0.3)',
     borderRadius: 12,
     color: '#fff',
     cursor: 'pointer',
@@ -929,16 +929,16 @@ const styles = {
   },
   status: {
     padding: '8px 14px',
-    background: 'rgba(16,185,129,0.15)',
-    border: '1px solid rgba(16,185,129,0.3)',
+    background: 'rgba(52,168,83,0.15)',
+    border: '1px solid rgba(52,168,83,0.3)',
     borderRadius: 20,
     fontSize: 13,
-    color: '#10b981',
+    color: '#34A853',
     display: 'flex',
     alignItems: 'center',
     gap: 6,
   },
-  statusDot: { width: 8, height: 8, background: '#10b981', borderRadius: '50%' },
+  statusDot: { width: 8, height: 8, background: '#34A853', borderRadius: '50%' },
   // Chat
   chatArea: {
     flex: 1,
@@ -947,20 +947,20 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     gap: 16,
-    background: 'radial-gradient(ellipse at top left, rgba(93,71,250,0.08) 0%, transparent 50%), #1a1a2e',
+    background: 'radial-gradient(ellipse at top left, rgba(66,133,244,0.08) 0%, transparent 50%), #1a1a2e',
   },
   welcome: { textAlign: 'center', padding: '32px 24px' },
   welcomeRobot: {
     width: 100,
     height: 100,
-    background: 'linear-gradient(145deg, #5d47fa, #4a38d4)',
+    background: 'linear-gradient(145deg, #4285F4, #3367d6)',
     borderRadius: 28,
     margin: '0 auto 24px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
-    boxShadow: '0 12px 48px rgba(93,71,250,0.5)',
+    boxShadow: '0 12px 48px rgba(66,133,244,0.5)',
     animation: 'float 3s ease-in-out infinite',
   },
   welcomeEyes: { position: 'absolute', top: 24, display: 'flex', gap: 16 },
@@ -970,8 +970,8 @@ const styles = {
   bookingCard: {
     maxWidth: 520,
     margin: '28px auto 0',
-    background: 'linear-gradient(135deg, rgba(93,71,250,0.12), rgba(16,185,129,0.12))',
-    border: '1px solid rgba(16,185,129,0.3)',
+    background: 'linear-gradient(135deg, rgba(66,133,244,0.12), rgba(52,168,83,0.12))',
+    border: '1px solid rgba(52,168,83,0.3)',
     borderRadius: 20,
     padding: 24,
     textAlign: 'left',
@@ -1008,8 +1008,8 @@ const styles = {
   },
   stat: {
     fontSize: 12,
-    color: '#10b981',
-    background: 'rgba(16,185,129,0.15)',
+    color: '#34A853',
+    background: 'rgba(52,168,83,0.15)',
     padding: '4px 10px',
     borderRadius: 8,
     whiteSpace: 'nowrap',
@@ -1017,7 +1017,7 @@ const styles = {
   bookingCardBtn: {
     width: '100%',
     padding: 14,
-    background: 'linear-gradient(135deg, #10b981, #059669)',
+    background: 'linear-gradient(135deg, #34A853, #2d9248)',
     border: 'none',
     borderRadius: 12,
     color: '#fff',
@@ -1041,15 +1041,15 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    background: isUser ? '#25253d' : 'linear-gradient(145deg, #5d47fa, #4a38d4)',
+    background: isUser ? '#25253d' : 'linear-gradient(145deg, #4285F4, #3367d6)',
     fontSize: 16,
     flexShrink: 0,
   }),
   messageContent: (isUser) => ({
     padding: '14px 18px',
     borderRadius: 18,
-    background: isUser ? 'linear-gradient(135deg, #5d47fa, #7a64ff)' : '#25253d',
-    border: isUser ? 'none' : '1px solid rgba(93,71,250,0.2)',
+    background: isUser ? 'linear-gradient(135deg, #4285F4, #5a9cf6)' : '#25253d',
+    border: isUser ? 'none' : '1px solid rgba(66,133,244,0.2)',
     lineHeight: 1.7,
     fontSize: 15,
   }),
@@ -1064,7 +1064,7 @@ const styles = {
   },
   inlineBookingBtn: {
     padding: '12px 24px',
-    background: 'linear-gradient(135deg, #10b981, #059669)',
+    background: 'linear-gradient(135deg, #34A853, #2d9248)',
     border: 'none',
     borderRadius: 12,
     color: '#fff',
@@ -1083,7 +1083,7 @@ const styles = {
   typing: {
     padding: '16px 20px',
     background: '#25253d',
-    border: '1px solid rgba(93,71,250,0.2)',
+    border: '1px solid rgba(66,133,244,0.2)',
     borderRadius: 18,
     display: 'flex',
     gap: 6,
@@ -1091,7 +1091,7 @@ const styles = {
   typingDot: {
     width: 10,
     height: 10,
-    background: '#5d47fa',
+    background: '#4285F4',
     borderRadius: '50%',
     animation: 'pulse 1.4s infinite',
   },
@@ -1101,30 +1101,30 @@ const styles = {
     flexWrap: 'wrap',
     gap: 8,
     padding: '12px 24px',
-    borderTop: '1px solid rgba(93,71,250,0.15)',
+    borderTop: '1px solid rgba(66,133,244,0.15)',
     background: 'rgba(0,0,0,0.2)',
   },
   quickActionBtn: {
     padding: '8px 14px',
     background: '#25253d',
-    border: '1px solid rgba(93,71,250,0.3)',
+    border: '1px solid rgba(66,133,244,0.3)',
     borderRadius: 20,
     color: '#fff',
     fontSize: 13,
     cursor: 'pointer',
   },
   quickActionBtnHighlight: {
-    background: 'linear-gradient(135deg, rgba(16,185,129,0.25), rgba(5,150,105,0.25))',
-    border: '1px solid rgba(16,185,129,0.5)',
+    background: 'linear-gradient(135deg, rgba(52,168,83,0.25), rgba(5,150,105,0.25))',
+    border: '1px solid rgba(52,168,83,0.5)',
     fontWeight: 600,
   },
   // Input
-  inputArea: { padding: '12px 24px 20px', background: '#25253d', borderTop: '1px solid rgba(93,71,250,0.2)' },
+  inputArea: { padding: '12px 24px 20px', background: '#25253d', borderTop: '1px solid rgba(66,133,244,0.2)' },
   chatInputWrapper: {
     display: 'flex',
     gap: 12,
     background: '#1a1a2e',
-    border: '2px solid rgba(93,71,250,0.3)',
+    border: '2px solid rgba(66,133,244,0.3)',
     borderRadius: 16,
     padding: 8,
   },
@@ -1140,7 +1140,7 @@ const styles = {
   sendBtn: {
     width: 52,
     height: 52,
-    background: 'linear-gradient(135deg, #5d47fa, #7a64ff)',
+    background: 'linear-gradient(135deg, #4285F4, #5a9cf6)',
     border: 'none',
     borderRadius: 12,
     color: '#fff',
@@ -1152,17 +1152,17 @@ const styles = {
     textAlign: 'center',
     fontSize: 13,
     color: '#6b6b8a',
-    borderTop: '1px solid rgba(93,71,250,0.1)',
+    borderTop: '1px solid rgba(66,133,244,0.1)',
   },
-  footerLink: { color: '#7a64ff', textDecoration: 'none', fontWeight: 600 },
+  footerLink: { color: '#5a9cf6', textDecoration: 'none', fontWeight: 600 },
   footerSep: { margin: '0 8px', color: '#3a3a5a' },
   // Sources
   sourcesBox: {
     marginLeft: 50,
     marginTop: 8,
     padding: '10px 14px',
-    background: 'rgba(93,71,250,0.08)',
-    border: '1px solid rgba(93,71,250,0.2)',
+    background: 'rgba(66,133,244,0.08)',
+    border: '1px solid rgba(66,133,244,0.2)',
     borderRadius: 12,
   },
   sourcesLabel: {
@@ -1181,10 +1181,10 @@ const styles = {
   sourceChip: {
     display: 'inline-block',
     padding: '5px 12px',
-    background: 'rgba(93,71,250,0.15)',
-    border: '1px solid rgba(93,71,250,0.3)',
+    background: 'rgba(66,133,244,0.15)',
+    border: '1px solid rgba(66,133,244,0.3)',
     borderRadius: 8,
-    color: '#7a64ff',
+    color: '#5a9cf6',
     fontSize: 12,
     textDecoration: 'none',
     maxWidth: 220,

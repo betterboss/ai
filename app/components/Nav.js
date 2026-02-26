@@ -71,7 +71,7 @@ const styles = {
     padding: '0 24px',
     height: '60px',
     background: 'linear-gradient(180deg, #12131a 0%, #0f1015 100%)',
-    borderBottom: '1px solid rgba(93,71,250,0.15)',
+    borderBottom: '1px solid rgba(66,133,244,0.15)',
     position: 'sticky',
     top: 0,
     zIndex: 100,
@@ -87,12 +87,12 @@ const styles = {
     width: '34px',
     height: '34px',
     borderRadius: '10px',
-    background: 'linear-gradient(135deg, #5d47fa, #7a64ff)',
+    background: 'linear-gradient(135deg, #4285F4, #5a9cf6)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     color: '#fff',
-    boxShadow: '0 2px 12px rgba(93,71,250,0.4)',
+    boxShadow: '0 2px 12px rgba(66,133,244,0.4)',
   },
   brandText: {
     fontWeight: 800,
@@ -104,7 +104,7 @@ const styles = {
   },
   brandSub: {
     fontSize: '0.65em',
-    color: '#7a64ff',
+    color: '#5a9cf6',
     fontWeight: 600,
     textTransform: 'uppercase',
     letterSpacing: '1.5px',
@@ -128,8 +128,8 @@ const styles = {
     position: 'relative',
   },
   activeLink: {
-    background: 'rgba(93,71,250,0.12)',
-    color: '#a78bfa',
+    background: 'rgba(66,133,244,0.12)',
+    color: '#8ab4f8',
   },
   activeDot: {
     position: 'absolute',
@@ -139,6 +139,6 @@ const styles = {
     width: '20px',
     height: '2px',
     borderRadius: '1px',
-    background: 'linear-gradient(90deg, #5d47fa, #7a64ff)',
+    background: 'linear-gradient(90deg, #4285F4, #5a9cf6)',
   },
 };

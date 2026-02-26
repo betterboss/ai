@@ -74,7 +74,7 @@ export default function QuotePage() {
       <div style={styles.page}>
         <Nav />
         <div style={styles.loadingWrap}>
-          <p style={{ color: '#ef4444' }}>Estimate not found</p>
+          <p style={{ color: '#EA4335' }}>Estimate not found</p>
           <a href="/estimate" style={styles.backBtn}>Back to Estimates</a>
         </div>
       </div>
@@ -271,8 +271,8 @@ const styles = {
   spinner: {
     width: '32px',
     height: '32px',
-    border: '3px solid rgba(93,71,250,0.2)',
-    borderTopColor: '#5d47fa',
+    border: '3px solid rgba(66,133,244,0.2)',
+    borderTopColor: '#4285F4',
     borderRadius: '50%',
     animation: 'spin 0.8s linear infinite',
     margin: '0 auto 16px',
@@ -291,7 +291,7 @@ const styles = {
     display: 'inline-flex',
     alignItems: 'center',
     gap: '6px',
-    color: '#a78bfa',
+    color: '#8ab4f8',
     textDecoration: 'none',
     fontSize: '0.88em',
     fontWeight: 500,
@@ -305,10 +305,10 @@ const styles = {
     alignItems: 'center',
     gap: '6px',
     padding: '8px 16px',
-    background: 'rgba(93,71,250,0.12)',
-    border: '1px solid rgba(93,71,250,0.25)',
+    background: 'rgba(66,133,244,0.12)',
+    border: '1px solid rgba(66,133,244,0.25)',
     borderRadius: '8px',
-    color: '#a78bfa',
+    color: '#8ab4f8',
     cursor: 'pointer',
     fontSize: '0.85em',
     fontWeight: 500,
@@ -318,7 +318,7 @@ const styles = {
     alignItems: 'center',
     gap: '6px',
     padding: '8px 16px',
-    background: 'linear-gradient(135deg, #5d47fa, #7c3aed)',
+    background: 'linear-gradient(135deg, #4285F4, #1a73e8)',
     borderRadius: '8px',
     color: '#fff',
     border: 'none',
@@ -357,7 +357,7 @@ const styles = {
     width: '36px',
     height: '36px',
     borderRadius: '8px',
-    background: 'linear-gradient(135deg, #5d47fa, #7c3aed)',
+    background: 'linear-gradient(135deg, #4285F4, #1a73e8)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -381,7 +381,7 @@ const styles = {
   quoteLabelText: {
     fontSize: '1.3em',
     fontWeight: 800,
-    color: '#5d47fa',
+    color: '#4285F4',
     letterSpacing: '3px',
   },
   quoteDate: {
@@ -391,7 +391,7 @@ const styles = {
   },
   divider: {
     height: '3px',
-    background: 'linear-gradient(135deg, #5d47fa, #7c3aed)',
+    background: 'linear-gradient(135deg, #4285F4, #1a73e8)',
     margin: '20px 0',
     borderRadius: '2px',
   },
@@ -423,7 +423,7 @@ const styles = {
     padding: '20px 24px',
     background: '#f8f9fb',
     borderRadius: '10px',
-    borderLeft: '3px solid #5d47fa',
+    borderLeft: '3px solid #4285F4',
   },
   coverParagraph: {
     color: '#333',
@@ -484,14 +484,14 @@ const styles = {
   totalValue: {
     fontSize: '1.6em',
     fontWeight: 800,
-    color: '#5d47fa',
+    color: '#4285F4',
   },
   notesSection: {
     marginTop: '24px',
     padding: '16px 20px',
     background: '#fefce8',
     borderRadius: '8px',
-    borderLeft: '3px solid #f59e0b',
+    borderLeft: '3px solid #FBBC05',
   },
   notesTitle: {
     fontSize: '0.78em',

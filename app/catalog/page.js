@@ -5,10 +5,10 @@ import Nav from '../components/Nav';
 
 const CATEGORIES = ['material', 'labor', 'equipment', 'subcontractor'];
 const CATEGORY_COLORS = {
-  material: '#a78bfa',
-  labor: '#22c55e',
-  equipment: '#f59e0b',
-  subcontractor: '#ef4444',
+  material: '#8ab4f8',
+  labor: '#34A853',
+  equipment: '#FBBC05',
+  subcontractor: '#EA4335',
 };
 
 export default function CatalogManager() {
@@ -287,7 +287,7 @@ export default function CatalogManager() {
         ) : (
           <div style={styles.list}>
             {filtered.map(item => {
-              const catColor = CATEGORY_COLORS[item.category] || '#a78bfa';
+              const catColor = CATEGORY_COLORS[item.category] || '#8ab4f8';
               return (
                 <div key={item.id} style={styles.itemCard}>
                   <div style={styles.itemTop}>
@@ -373,14 +373,14 @@ const styles = {
     alignItems: 'center',
     gap: '6px',
     padding: '9px 18px',
-    background: 'linear-gradient(135deg, #5d47fa, #7c3aed)',
+    background: 'linear-gradient(135deg, #4285F4, #1a73e8)',
     borderRadius: '8px',
     color: '#fff',
     fontWeight: 600,
     border: 'none',
     cursor: 'pointer',
     fontSize: '0.88em',
-    boxShadow: '0 4px 16px rgba(93,71,250,0.3)',
+    boxShadow: '0 4px 16px rgba(66,133,244,0.3)',
   },
   secondaryBtn: {
     display: 'inline-flex',
@@ -448,9 +448,9 @@ const styles = {
     textTransform: 'capitalize',
   },
   filterActive: {
-    background: 'rgba(93,71,250,0.12)',
-    borderColor: 'rgba(93,71,250,0.3)',
-    color: '#a78bfa',
+    background: 'rgba(66,133,244,0.12)',
+    borderColor: 'rgba(66,133,244,0.3)',
+    color: '#8ab4f8',
   },
   panel: {
     background: 'rgba(255,255,255,0.025)',
@@ -530,8 +530,8 @@ const styles = {
   spinner: {
     width: '32px',
     height: '32px',
-    border: '3px solid rgba(93,71,250,0.2)',
-    borderTopColor: '#5d47fa',
+    border: '3px solid rgba(66,133,244,0.2)',
+    borderTopColor: '#4285F4',
     borderRadius: '50%',
     animation: 'spin 0.8s linear infinite',
     margin: '0 auto 16px',
@@ -588,7 +588,7 @@ const styles = {
   deleteBtn: {
     padding: '5px',
     background: 'transparent',
-    border: '1px solid rgba(239,68,68,0.15)',
+    border: '1px solid rgba(234,67,53,0.15)',
     borderRadius: '6px',
     color: '#6b7280',
     cursor: 'pointer',
@@ -616,7 +616,7 @@ const styles = {
     fontVariantNumeric: 'tabular-nums',
   },
   itemMarkup: {
-    color: '#22c55e',
+    color: '#34A853',
     fontWeight: 500,
   },
   jtBadge: {
@@ -624,10 +624,10 @@ const styles = {
     alignItems: 'center',
     gap: '3px',
     padding: '2px 6px',
-    background: 'rgba(34,197,94,0.1)',
-    border: '1px solid rgba(34,197,94,0.2)',
+    background: 'rgba(52,168,83,0.1)',
+    border: '1px solid rgba(52,168,83,0.2)',
     borderRadius: '4px',
-    color: '#22c55e',
+    color: '#34A853',
     fontWeight: 700,
     fontSize: '0.75em',
   },
