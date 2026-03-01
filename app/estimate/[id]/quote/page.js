@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
-import Nav from '../../../components/Nav';
+import PageShell from '../../../components/PageShell';
 
 export default function QuotePage() {
   const params = useParams();
@@ -59,25 +59,23 @@ export default function QuotePage() {
 
   if (loading) {
     return (
-      <div style={styles.page}>
-        <Nav />
+      <PageShell>
         <div style={styles.loadingWrap}>
           <div style={styles.spinner} />
           <p style={{ color: '#6b7280' }}>Loading quote...</p>
         </div>
-      </div>
+      </PageShell>
     );
   }
 
   if (!estimate) {
     return (
-      <div style={styles.page}>
-        <Nav />
+      <PageShell>
         <div style={styles.loadingWrap}>
           <p style={{ color: '#ef4444' }}>Estimate not found</p>
           <a href="/estimate" style={styles.backBtn}>Back to Estimates</a>
         </div>
-      </div>
+      </PageShell>
     );
   }
 
@@ -92,8 +90,7 @@ export default function QuotePage() {
   const totalPrice = items.reduce((s, i) => s + (parseFloat(i.total_price) || 0), 0);
 
   return (
-    <div style={styles.page}>
-      <Nav />
+    <PageShell>
 
       {/* Print-hidden controls */}
       <div style={styles.controls} className="no-print">
@@ -254,16 +251,11 @@ export default function QuotePage() {
           </div>
         </div>
       </div>
-    </div>
+    </PageShell>
   );
 }
 
 const styles = {
-  page: {
-    minHeight: '100vh',
-    background: '#0a0b0f',
-    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
-  },
   loadingWrap: {
     textAlign: 'center',
     padding: '80px 20px',

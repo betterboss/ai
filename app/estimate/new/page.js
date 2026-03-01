@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Nav from '../../components/Nav';
+import PageShell from '../../components/PageShell';
 
 export default function NewEstimate() {
   const router = useRouter();
@@ -67,8 +67,7 @@ export default function NewEstimate() {
   };
 
   return (
-    <div style={styles.page}>
-      <Nav />
+    <PageShell>
       <div style={styles.container}>
         <div style={styles.header}>
           <a href="/estimate" style={styles.backLink}>
@@ -234,21 +233,14 @@ export default function NewEstimate() {
       <style jsx global>{`
         @keyframes spin { to { transform: rotate(360deg); } }
       `}</style>
-    </div>
+    </PageShell>
   );
 }
 
 const styles = {
-  page: {
-    minHeight: '100vh',
-    background: '#0a0b0f',
-    color: '#e5e7eb',
-    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
-  },
   container: {
     maxWidth: '680px',
-    margin: '0 auto',
-    padding: '0 24px 60px',
+    padding: '28px 32px 60px',
   },
   header: {
     padding: '32px 0 24px',

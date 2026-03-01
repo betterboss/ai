@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
-import Nav from '../../components/Nav';
+import PageShell from '../../components/PageShell';
 import EstimateTable from '../../components/EstimateTable';
 import TakeoffUploader from '../../components/TakeoffUploader';
 import CatalogPicker from '../../components/CatalogPicker';
@@ -268,26 +268,24 @@ export default function EstimateEditor() {
 
   if (loading) {
     return (
-      <div style={styles.page}>
-        <Nav />
+      <PageShell>
         <div style={styles.loadingWrap}>
           <div style={styles.spinner} />
           <p style={{ color: '#6b7280' }}>Loading estimate...</p>
         </div>
         <style jsx global>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-      </div>
+      </PageShell>
     );
   }
 
   if (!estimate) {
     return (
-      <div style={styles.page}>
-        <Nav />
+      <PageShell>
         <div style={styles.loadingWrap}>
           <p style={{ color: '#ef4444' }}>Estimate not found</p>
           <a href="/estimate" style={styles.backLink}>Back to Estimates</a>
         </div>
-      </div>
+      </PageShell>
     );
   }
 
@@ -297,8 +295,7 @@ export default function EstimateEditor() {
   const margin = parseFloat(estimate.margin_pct || 0);
 
   return (
-    <div style={styles.page}>
-      <Nav />
+    <PageShell>
       <div style={styles.container}>
         {/* Header Bar */}
         <div style={styles.topBar}>
@@ -626,21 +623,14 @@ export default function EstimateEditor() {
       <style jsx global>{`
         @keyframes spin { to { transform: rotate(360deg); } }
       `}</style>
-    </div>
+    </PageShell>
   );
 }
 
 const styles = {
-  page: {
-    minHeight: '100vh',
-    background: '#0a0b0f',
-    color: '#e5e7eb',
-    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
-  },
   container: {
     maxWidth: '1280px',
-    margin: '0 auto',
-    padding: '0 24px 60px',
+    padding: '28px 32px 60px',
   },
   loadingWrap: {
     textAlign: 'center',

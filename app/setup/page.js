@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import PageShell from '../components/PageShell';
 
 export default function SetupPage() {
   const router = useRouter();
@@ -86,7 +87,7 @@ export default function SetupPage() {
   };
 
   return (
-    <div style={styles.page}>
+    <PageShell>
       <div style={styles.container}>
         <div style={styles.logoBox}>
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -303,16 +304,13 @@ export default function SetupPage() {
       <style jsx global>{`
         @keyframes spin { to { transform: rotate(360deg); } }
       `}</style>
-    </div>
+    </PageShell>
   );
 }
 
 const styles = {
   page: {
     minHeight: '100vh',
-    background: '#0a0b0f',
-    color: '#e5e7eb',
-    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
