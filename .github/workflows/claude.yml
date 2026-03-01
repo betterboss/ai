@@ -31,6 +31,11 @@ jobs:
         with:
           node-version: "22"
 
+      - name: Install tools
+        run: |
+          npm i -g vercel@latest
+          npm i -g neonctl@latest
+
       - uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -39,3 +44,10 @@ jobs:
             --allowedTools "Bash,Read,Write,Edit,Replace"
           use_commit_signing: true
           track_progress: true
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          GODADDY_API_KEY: ${{ secrets.GODADDY_API_KEY }}
+          GODADDY_API_SECRET: ${{ secrets.GODADDY_API_SECRET }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
